@@ -73,17 +73,24 @@ Workers AI usage is billed to your Cloudflare account; vision models can be slow
 
 ## Repository
 
-This codebase is designed to live in its own GitHub repository named **scan-and-parse**. If you cloned from another remote, add your GitHub remote and push:
+This codebase is meant to live in its own GitHub repository named **scan-and-parse**.
+
+### Create the repo on GitHub (manual)
+
+Some automation environments cannot call `gh repo create` for you. In that case:
+
+1. On GitHub, create a new empty repository `scan-and-parse` (no README) under your user or org.
+2. From this project directory:
+
+   ```bash
+   git remote add scan-and-parse https://github.com/<you>/scan-and-parse.git
+   git push -u scan-and-parse cursor/scan-and-parse-spa-e528:main
+   ```
+
+   Replace `<you>` with your GitHub username or org, and adjust the branch name if you merged locally first.
+
+### GitHub CLI (when your token allows it)
 
 ```bash
-git remote add github https://github.com/<you>/scan-and-parse.git
-git push -u github main
+gh repo create scan-and-parse --public --source=. --remote=scan-and-parse --push
 ```
-
-Or create the repo with GitHub CLI from this folder:
-
-```bash
-gh repo create scan-and-parse --public --source=. --remote=origin --push
-```
-
-(Resolve remote name conflicts if the folder already has an `origin`.)
