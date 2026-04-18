@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ParseResponse, ParsedReceipt, ReceiptItem, SubmitResponse } from "./types";
 
+type AuthMe = { user: { sub: string; email: string } | null; authConfigured: boolean };
+
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, { credentials: "include", ...init });
+  return (await res.json()) as T;
+}
+
 async function fetchStats(): Promise<number> {
-  const res = await fetch("/api/stats");
+  const res = await fetch("/api/stats", { credentials: "include" });
+  if (res.status === 401) return 0;
   if (!res.ok) return 0;
   const j = (await res.json()) as { totalReceipts: number };
   return j.totalReceipts ?? 0;
@@ -35,6 +43,7 @@ function sumItems(items: ReceiptItem[]): number {
 }
 
 export default function App() {
+  const [auth, setAuth] = useState<AuthMe | null>(null);
   const [totalReceipts, setTotalReceipts] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -47,18 +56,26 @@ export default function App() {
   const [lastSubmit, setLastSubmit] = useState<SubmitResponse | null>(null);
 
   useEffect(() => {
-    fetchStats().then(setTotalReceipts).catch(() => setTotalReceipts(0));
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") === "error") {
+      const reason = params.get("reason") ?? "unknown";
+      setError(`Sign-in failed: ${reason}`);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }, []);
 
   useEffect(() => {
-    if (!file) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    fetchJson<AuthMe>("/api/auth/me")
+      .then((me) => {
+        setAuth(me);
+        if (me.user) {
+          fetchStats().then(setTotalReceipts).catch(() => setTotalReceipts(0));
+        } else {
+          setTotalReceipts(null);
+        }
+      })
+      .catch(() => setAuth({ user: null, authConfigured: false }));
+  }, []);
 
   const resetFlow = useCallback(() => {
     setParseResult(null);
@@ -69,6 +86,29 @@ export default function App() {
     setError(null);
     setFile(null);
   }, []);
+
+  const refreshAuth = useCallback(async () => {
+    const me = await fetchJson<AuthMe>("/api/auth/me");
+    setAuth(me);
+    if (me.user) fetchStats().then(setTotalReceipts).catch(() => setTotalReceipts(0));
+    else setTotalReceipts(null);
+  }, []);
+
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    await refreshAuth();
+    resetFlow();
+  };
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   const onPickFile = (f: File | null) => {
     setError(null);
@@ -88,7 +128,7 @@ export default function App() {
     try {
       const fd = new FormData();
       fd.set("image", file);
-      const res = await fetch("/api/parse", { method: "POST", body: fd });
+      const res = await fetch("/api/parse", { method: "POST", body: fd, credentials: "include" });
       const data = (await res.json()) as ParseResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Parse failed");
       setParseResult(data);
@@ -161,6 +201,7 @@ export default function App() {
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           contentHash,
           imageMime: file.type || "image/jpeg",
@@ -198,6 +239,30 @@ export default function App() {
     return `This image matches a previous upload (${parseResult.duplicateCount} saved).`;
   }, [parseResult]);
 
+  const signedIn = Boolean(auth?.user);
+  const authReady = auth !== null;
+
+  if (authReady && auth.authConfigured && !signedIn) {
+    return (
+      <div style={{ maxWidth: 520, margin: "0 auto", padding: "2rem 1rem" }}>
+        <div className="card stack">
+          <h1 style={{ margin: 0, fontSize: "1.35rem" }}>Scan & Parse</h1>
+          <p className="muted" style={{ margin: 0 }}>
+            Sign in with your Google account to scan receipts and save them to your database.
+          </p>
+          {error ? (
+            <div className="badge warn" role="alert">
+              {error}
+            </div>
+          ) : null}
+          <button type="button" className="btn" onClick={() => (window.location.href = "/api/auth/login")}>
+            Continue with Google
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 920, margin: "0 auto", padding: "1rem 1rem 2.5rem" }}>
       <header className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
@@ -207,9 +272,26 @@ export default function App() {
             Tokyo trip receipts: snap, review, approve, sync to your sheet.
           </p>
         </div>
-        <span className="badge" title="Receipts stored in D1 after approval">
-          Stored: {totalReceipts === null ? "…" : totalReceipts}
-        </span>
+        <div className="row" style={{ gap: "0.5rem", justifyContent: "flex-end" }}>
+          {auth?.user ? (
+            <span className="badge" title={auth.user.email}>
+              {auth.user.email ? auth.user.email.split("@")[0] : "Signed in"}
+            </span>
+          ) : null}
+          {auth?.authConfigured === false ? (
+            <span className="badge warn" title="Set AUTH_SESSION_SECRET and Google OAuth vars on the Worker">
+              Auth off
+            </span>
+          ) : null}
+          {signedIn ? (
+            <button type="button" className="btn btn-secondary" onClick={() => void logout()}>
+              Sign out
+            </button>
+          ) : null}
+          <span className="badge" title="Receipts stored in D1 after approval">
+            Stored: {!signedIn ? "—" : totalReceipts === null ? "…" : totalReceipts}
+          </span>
+        </div>
       </header>
 
       <div className="stack">
@@ -220,6 +302,11 @@ export default function App() {
               Reset
             </button>
           </div>
+          {!signedIn && auth?.authConfigured ? (
+            <p className="muted" style={{ margin: 0 }}>
+              Sign in to upload and parse receipts.
+            </p>
+          ) : null}
           <p className="muted" style={{ margin: 0 }}>
             Use your phone camera (install as PWA for a home-screen app). JPEG or PNG works best.
           </p>
@@ -233,7 +320,7 @@ export default function App() {
           </div>
           {previewUrl ? <img className="preview-img" src={previewUrl} alt="Receipt preview" /> : null}
           <div className="row">
-            <button type="button" className="btn" onClick={parseImage} disabled={!file || busy}>
+            <button type="button" className="btn" onClick={parseImage} disabled={!file || busy || !signedIn}>
               {busy ? "Working…" : "Parse with AI"}
             </button>
           </div>
@@ -392,7 +479,7 @@ export default function App() {
             </label>
 
             <div className="row">
-              <button type="button" className="btn" onClick={submit} disabled={busy}>
+              <button type="button" className="btn" onClick={submit} disabled={busy || !signedIn}>
                 Approve & save
               </button>
             </div>

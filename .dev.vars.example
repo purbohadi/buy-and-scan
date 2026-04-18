@@ -1,3 +1,10 @@
 # Copy to .dev.vars (not committed) for local Wrangler
+
+# Google Sign-In (OAuth 2.0) — create a "Web application" OAuth client in Google Cloud Console
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+# Random string (32+ chars) to sign session cookies
+AUTH_SESSION_SECRET=
+
 GOOGLE_APPS_SCRIPT_URL=
 GOOGLE_APPS_SCRIPT_SECRET=

@@ -4,6 +4,7 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 
 ## Features
 
+- **Google sign-in** (OAuth 2.0 with PKCE): parse, submit, stats, and receipt images require a signed-in user; data is scoped per Google `sub` in D1 and R2 keys.
 - PWA installable on your home screen; camera capture via file input (`capture="environment"`).
 - **Parse** uploads the image once; the Worker hashes the bytes (SHA-256) for duplicate detection.
 - **Review** vendor, ISO datetime, currency, total, category, summary, optional GPS, and line items.
@@ -30,7 +31,18 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
    npx wrangler d1 migrations apply scan-and-parse-db --remote
    ```
 
-4. Optional: Google Sheets — create a spreadsheet, add the script from `scripts/google-apps-script.js` (set `SHEET_ID`, deploy as Web App), then put the web app URL in `.dev.vars`:
+4. **Google login (required for API use)**  
+   - In [Google Cloud Console](https://console.cloud.google.com/), create an OAuth **Web application** client.  
+   - Authorized redirect URI: `https://<your-worker-host>/api/auth/callback` (and for local dev: `http://127.0.0.1:8787/api/auth/callback` if you hit Wrangler directly).  
+   - Put in `.dev.vars` (see `.dev.vars.example`):
+
+     ```
+     GOOGLE_CLIENT_ID=...
+     GOOGLE_CLIENT_SECRET=...
+     AUTH_SESSION_SECRET=long-random-string
+     ```
+
+5. Optional: Google Sheets — create a spreadsheet, add the script from `scripts/google-apps-script.js` (set `SHEET_ID`, deploy as Web App), then put the web app URL in `.dev.vars`:
 
    ```
    GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/.../exec
@@ -39,7 +51,7 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 
    The same secret must appear as `WEBHOOK_SECRET` in the Apps Script file.
 
-5. Run the API and the Vite dev server (Vite proxies `/api` to Wrangler on port 8787):
+6. Run the API and the Vite dev server (Vite proxies `/api` to Wrangler on port 8787):
 
    ```bash
    npm run dev
@@ -56,6 +68,9 @@ npm run deploy
 Set production secrets in the dashboard or with Wrangler:
 
 ```bash
+npx wrangler secret put AUTH_SESSION_SECRET
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put GOOGLE_APPS_SCRIPT_URL
 npx wrangler secret put GOOGLE_APPS_SCRIPT_SECRET
 ```
@@ -66,10 +81,14 @@ Workers AI usage is billed to your Cloudflare account; vision models can be slow
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/stats` | `{ totalReceipts }` |
-| `POST` | `/api/parse` | `multipart/form-data` field `image` **or** JSON `{ imageBase64, imageMime }` → parsed draft + `contentHash` + duplicate info |
-| `POST` | `/api/submit` | JSON `{ contentHash, imageBase64, imageMime?, receipt, confirmDuplicate? }` |
-| `GET` | `/api/receipt-image/:key` | Public image bytes from R2 |
+| `GET` | `/api/auth/me` | `{ user, authConfigured }` — session from cookie |
+| `GET` | `/api/auth/login` | Redirect to Google OAuth |
+| `GET` | `/api/auth/callback` | OAuth redirect; sets session cookie |
+| `POST` | `/api/auth/logout` | Clears session cookie |
+| `GET` | `/api/stats` | `{ totalReceipts }` (requires session) |
+| `POST` | `/api/parse` | `multipart/form-data` field `image` **or** JSON `{ imageBase64, imageMime }` → parsed draft + `contentHash` + duplicate info (requires session) |
+| `POST` | `/api/submit` | JSON `{ contentHash, imageBase64, imageMime?, receipt, confirmDuplicate? }` (requires session) |
+| `GET` | `/api/receipt-image/:key` | Image bytes from R2 for the signed-in owner (requires session) |
 
 ## Repository
 
