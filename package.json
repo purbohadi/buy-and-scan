@@ -1,0 +1,30 @@
+{
+  "name": "scan-and-parse",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n client,worker -c blue,magenta \"vite --port 5173\" \"npm run dev:worker\"",
+    "dev:worker": "wrangler dev --port 8787",
+    "build": "vite build",
+    "preview": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "lint": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.worker.json --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250418.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.2",
+    "vite-plugin-pwa": "^1.0.0",
+    "wrangler": "^4.12.0"
+  }
+}

@@ -1,0 +1,3 @@
+# Copy to .dev.vars (not committed) for local Wrangler
+GOOGLE_APPS_SCRIPT_URL=
+GOOGLE_APPS_SCRIPT_SECRET=
