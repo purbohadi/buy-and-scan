@@ -13,8 +13,21 @@ function isLlamaVisionLicenseGate(text: string): boolean {
 }
 
 async function ensureLlamaVisionLicense(ai: Ai): Promise<void> {
-  // Cloudflare Workers AI: Meta requires this once per account before vision+messages.
   await ai.run(VISION_MODEL, { prompt: "agree" });
+}
+
+function visionPayload(dataUrl: string) {
+  return {
+    messages: [
+      { role: "system", content: RECEIPT_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content:
+          "Extract structured receipt data as JSON only. If multiple languages, prefer amounts from printed totals."
+      }
+    ],
+    image: dataUrl
+  };
 }
 
 export async function parseReceiptWithWorkersAi(
@@ -25,19 +38,19 @@ export async function parseReceiptWithWorkersAi(
   const dataUrl = `data:${mime};base64,${bytesToBase64(imageBytes)}`;
 
   const runVision = async () =>
-    (await ai.run(VISION_MODEL, {
-    messages: [
-      { role: "system", content: RECEIPT_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content:
-          "Extract structured receipt data as JSON only. If multiple languages, prefer amounts from printed totals."
-      }
-    ],
-      image: dataUrl
-    })) as { response?: string };
+    (await ai.run(VISION_MODEL, visionPayload(dataUrl))) as { response?: string };
 
-  let res = await runVision();
+  let res: { response?: string } | string;
+  try {
+    res = await runVision();
+  } catch (e) {
+    // Workers AI returns HTTP 403 / internal 5016 as a thrown error, not model text.
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!isLlamaVisionLicenseGate(msg)) throw e;
+    await ensureLlamaVisionLicense(ai);
+    res = await runVision();
+  }
+
   let text = typeof res === "string" ? res : res.response ?? JSON.stringify(res);
 
   if (isLlamaVisionLicenseGate(text)) {

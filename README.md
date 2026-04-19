@@ -24,6 +24,8 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 **Optional vars:** `RECEIPT_VISION_MODEL`, `OPENAI_BASE_URL`, `OPENROUTER_BASE_URL`.  
 `RECEIPT_VISION_MODEL`: bare ids like `gpt-4o-mini` are sent to OpenAI as-is and to OpenRouter as `openai/gpt-4o-mini`. Values with a `/` (e.g. `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`) are used as-is on OpenRouter; on OpenAI fallback, only `openai/…` is mapped to the suffix; other provider prefixes fall back to the default OpenAI model.
 
+**Important:** Putting keys only in **`.env` on your laptop** does **not** give them to the **deployed** Worker. For production/dev on Cloudflare, set **`OPENROUTER_API_KEY`** (and optionally **`OPENAI_API_KEY`**) as **Worker secrets** for that environment (dashboard **Variables and Secrets**, or `npm run secrets` / `wrangler secret put`). Otherwise the chain skips OpenRouter and you only see **Workers AI** (including Meta **5016** until agreed).
+
 No `RECEIPT_AI_PROVIDER` or fallback-chain env vars — order is fixed in code.
 
 **Tradeoffs:** OpenAI/OpenRouter send the image to a third-party API; Workers AI stays on Cloudflare (Meta “agree” handled in code).
@@ -215,7 +217,7 @@ Use a **single** **`.env`** at the repo root (gitignored). Copy **`.env.example`
   - `production` → **`wrangler --env production`** → Worker **`scan-and-parse-production`**.
 - **`wrangler.jsonc`** top-level **`name`** is **`scan-and-parse`** (matches Cloudflare project / CI expectations). Named environments override the deployed worker name.
 - **`CLOUDFLARE_ACCOUNT_ID`** / **`CLOUDFLARE_API_TOKEN`** — for Wrangler CLI (`whoami`, `deploy`, D1 commands). `account_id` is also in `wrangler.jsonc`; the env var is optional if you rely on that file alone.
-- **Google / receipt keys** — same `.env`; Wrangler dev reads them via a generated **`.dev.vars`** (see below). **`ENV_MODE` is not** written to `.dev.vars` (local Worker does not need it).
+- **Google + AI keys** — same `.env`; local **`wrangler dev`** reads them via a generated **`.dev.vars`** (see below). **`ENV_MODE` is not** written to `.dev.vars`. For **hosted** Workers, run **`npm run secrets`** (or set secrets in the dashboard) so **`OPENROUTER_API_KEY`** / **`OPENAI_API_KEY`** exist on the Worker, not only in `.env`.
 
 **Never commit `.env`.**
 
@@ -253,7 +255,7 @@ dotenv -e .env -- wrangler whoami
 Deploy and secrets read **`ENV_MODE`** from **`.env`** (via `dotenv -e .env`). Set `ENV_MODE=development` or `ENV_MODE=production` before:
 
 ```bash
-npm run secrets   # push AUTH_SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET to the target Worker
+npm run secrets   # push secrets from .env: Google + session + optional OPENROUTER_API_KEY, OPENAI_API_KEY
 npm run deploy    # build + deploy to that Worker
 ```
 
