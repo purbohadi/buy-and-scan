@@ -6,5 +6,5 @@
     "types": ["node", "jest", "@cloudflare/workers-types"],
     "noEmit": true
   },
-  "include": ["worker/**/*.ts", "test/**/*.ts"]
+  "include": ["worker/**/*.ts", "shared/**/*.ts", "test/**/*.ts"]
 }

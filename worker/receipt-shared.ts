@@ -1,3 +1,4 @@
+import { coerceMoneyScalar, parseMoneyString, sanitizeMoneyAmount, sanitizeReceiptMoney } from "../shared/money";
 import type { ParsedReceipt } from "./types";
 
 export function bytesToBase64(bytes: Uint8Array): string {
@@ -50,21 +51,21 @@ export function extractJsonObject(text: string): string | null {
 }
 
 export function normalizeParsed(raw: Record<string, unknown>): ParsedReceipt {
+  const currency = String(raw.currency ?? "JPY").toUpperCase().slice(0, 8);
   const itemsRaw = Array.isArray(raw.items) ? raw.items : [];
   const items = itemsRaw.map((it) => {
     const o = it as Record<string, unknown>;
-    const quantity = Number(o.quantity ?? 1) || 1;
-    const unitPrice = Number(o.unitPrice ?? o.price ?? 0) || 0;
-    const lineTotal =
-      o.lineTotal !== undefined
-        ? Number(o.lineTotal) || 0
-        : Math.round(quantity * unitPrice * 100) / 100;
-    return {
-      name: String(o.name ?? o.label ?? "Item"),
-      quantity,
-      unitPrice,
-      lineTotal
-    };
+    const name = String(o.name ?? o.label ?? "Item");
+    const quantity = Math.max(1, Math.round(coerceMoneyScalar(o.quantity ?? 1)) || 1);
+    let unitPrice = sanitizeMoneyAmount(coerceMoneyScalar(o.unitPrice ?? o.price ?? 0), currency);
+    let lineTotal = sanitizeMoneyAmount(coerceMoneyScalar(o.lineTotal ?? 0), currency);
+    if (lineTotal === 0 && unitPrice > 0) {
+      lineTotal = sanitizeMoneyAmount(unitPrice * quantity, currency);
+    }
+    if (unitPrice === 0 && lineTotal > 0 && quantity > 0) {
+      unitPrice = sanitizeMoneyAmount(lineTotal / quantity, currency);
+    }
+    return { name, quantity, unitPrice, lineTotal };
   });
 
   const loc = raw.location as Record<string, unknown> | undefined;
@@ -77,8 +78,9 @@ export function normalizeParsed(raw: Record<string, unknown>): ParsedReceipt {
         }
       : undefined;
 
-  const currency = String(raw.currency ?? "JPY").toUpperCase().slice(0, 8);
-  const total = Number(raw.total ?? 0) || 0;
+  let total = sanitizeMoneyAmount(coerceMoneyScalar(raw.total ?? 0), currency);
+  const sumLines = items.reduce((s, it) => s + it.lineTotal, 0);
+  if (total === 0 && sumLines > 0) total = sanitizeMoneyAmount(sumLines, currency);
 
   return {
     vendor: raw.vendor != null ? String(raw.vendor) : undefined,
@@ -111,25 +113,8 @@ JSON shape:
 }
 Use best effort for Japanese and Indonesian receipts. If unsure about a field, use null or empty array.`;
 
-/** Parse IDR-style amounts: Rp124,290 / Rp124.290 / 138.100 → integer minor-ish units as number. */
-export function parseMoneyToNumber(raw: string): number | null {
-  const s = raw.replace(/Rp/gi, "").replace(/\s/g, "").trim();
-  if (!s) return null;
-  const cleaned = s.replace(/[^\d.,]/g, "");
-  if (!cleaned) return null;
-  // Thousands grouped: 124.290 or 124,290 (both separators as thousands)
-  if (/^\d{1,3}([.,]\d{3})+$/.test(cleaned)) {
-    return Math.round(Number(cleaned.replace(/[.,]/g, ""))) || null;
-  }
-  const lastComma = cleaned.lastIndexOf(",");
-  const lastDot = cleaned.lastIndexOf(".");
-  const decSep = Math.max(lastComma, lastDot);
-  if (decSep === -1) return Math.round(Number(cleaned)) || null;
-  const intPart = cleaned.slice(0, decSep).replace(/[.,]/g, "");
-  const fracPart = cleaned.slice(decSep + 1).replace(/\D/g, "");
-  const n = Number(`${intPart}.${fracPart || "0"}`);
-  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
-}
+/** @deprecated use parseMoneyString from shared/money */
+export const parseMoneyToNumber = parseMoneyString;
 
 function mdField(text: string, label: string): string | null {
   const re = new RegExp(`\\*\\*\\s*${label}\\s*:\\s*\\*\\*\\s*([^\\n]+)`, "i");
@@ -155,7 +140,7 @@ export function parseReceiptFromMarkdownStyle(text: string): ParsedReceipt | nul
   if (totalRaw) {
     const money = totalRaw.match(/Rp?\s*([\d.,]+)/i);
     if (money) {
-      const n = parseMoneyToNumber(money[0]);
+      const n = parseMoneyString(money[0]);
       if (n != null) total = n;
     }
   }
@@ -186,16 +171,18 @@ export function parseReceiptFromMarkdownStyle(text: string): ParsedReceipt | nul
 
   if (!vendor && total === 0 && items.length === 0) return null;
 
-  return normalizeParsed({
-    vendor: vendor ?? null,
-    receiptDatetime: dateRaw ?? null,
-    currency,
-    total,
-    category: category ?? null,
-    description: description ?? null,
-    items,
-    location: locLabel ? { label: locLabel } : null
-  });
+  return sanitizeReceiptMoney(
+    normalizeParsed({
+      vendor: vendor ?? null,
+      receiptDatetime: dateRaw ?? null,
+      currency,
+      total,
+      category: category ?? null,
+      description: description ?? null,
+      items,
+      location: locLabel ? { label: locLabel } : null
+    })
+  );
 }
 
 /** Prefer strict JSON; fall back to markdown-style vision output. */
@@ -204,13 +191,13 @@ export function parseReceiptModelText(text: string): ParsedReceipt {
   if (jsonStr) {
     try {
       const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-      return normalizeParsed(parsed);
+      return sanitizeReceiptMoney(normalizeParsed(parsed));
     } catch {
       /* fall through */
     }
   }
   const md = parseReceiptFromMarkdownStyle(text);
-  if (md) return md;
+  if (md) return sanitizeReceiptMoney(md);
   const preview = text.replace(/\s+/g, " ").trim().slice(0, 280);
   throw new Error(`Model did not return parseable JSON (preview: ${preview || "(empty)"})`);
 }

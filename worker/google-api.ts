@@ -1,3 +1,4 @@
+import { isZeroDecimalCurrency } from "../shared/money";
 import type { ParsedReceipt } from "./types";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -63,11 +64,19 @@ export async function refreshAccessToken(params: {
   return json;
 }
 
+function sheetMoneyString(n: number, currency: string): string {
+  const c = String(currency ?? "").toUpperCase().slice(0, 8);
+  if (isZeroDecimalCurrency(c)) return String(Math.round(n));
+  const v = Math.round(n * 100) / 100;
+  return String(v);
+}
+
 function itemsDetail(receipt: ParsedReceipt): string {
+  const c = receipt.currency;
   return receipt.items
     .map(
       (it) =>
-        `${it.name} x${it.quantity} @ ${it.unitPrice.toFixed(2)} = ${it.lineTotal.toFixed(2)}`
+        `${it.name} x${it.quantity} @ ${sheetMoneyString(it.unitPrice, c)} = ${sheetMoneyString(it.lineTotal, c)}`
     )
     .join(" | ");
 }
@@ -149,6 +158,7 @@ export async function appendReceiptRow(params: {
   receipt: ParsedReceipt;
   imagePublicUrl: string;
 }): Promise<void> {
+  const c = params.receipt.currency;
   const row = [
     String(params.rowNumber),
     params.receiptId,
@@ -157,7 +167,7 @@ export async function appendReceiptRow(params: {
     params.receipt.description ?? "",
     params.receipt.category ?? "",
     itemsDetail(params.receipt),
-    String(params.receipt.total),
+    sheetMoneyString(params.receipt.total, c),
     params.receipt.currency,
     params.imagePublicUrl
   ];
