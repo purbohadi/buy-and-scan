@@ -84,30 +84,38 @@ Use a **single** **`.env`** at the repo root (gitignored). Copy **`.env.example`
 dotenv -e .env -- wrangler whoami
 ```
 
-Deploy (loads `.env` for the Wrangler process only):
-
-```bash
-npm run deploy
-```
+Deploy commands load **`.env`** for Wrangler (Cloudflare API token only; see `npm run dev` for Worker vars).
 
 Rotate `CLOUDFLARE_API_TOKEN` if it was ever exposed.
 
-## Deploy
+## Git branches vs Cloudflare Workers
+
+| Git branch | Use for | Worker | Deploy | Auth secrets |
+|------------|---------|--------|--------|----------------|
+| **`dev`** | day-to-day development | **`scan-and-parse-dev`** (default in `wrangler.jsonc`) | `npm run deploy` (= `deploy:dev`) | `npm run secrets:dev` |
+| **`main`** | production releases | **`scan-and-parse-production`** (`--env production`) | `npm run deploy:production` | `npm run secrets:production` |
+
+Both Workers use the **same D1 + R2** bindings in this repo (see `wrangler.jsonc`). Split databases/buckets later if you want isolated prod data.
+
+### Dev (`scan-and-parse-dev`)
 
 ```bash
-npm run deploy
+git checkout dev
+npm run secrets:dev          # once per change to Google/session secrets
+npm run deploy               # or: npm run deploy:dev
 ```
 
-Worker secrets (production):
+Add **`https://scan-and-parse-dev.<your-subdomain>.workers.dev`** to Google OAuth redirect + JS origins (same pattern as production).
+
+### Production (`scan-and-parse-production`)
 
 ```bash
-npx wrangler secret put AUTH_SESSION_SECRET
-npx wrangler secret put GOOGLE_CLIENT_ID
-npx wrangler secret put GOOGLE_CLIENT_SECRET
-# Optional external receipt AI:
-# npx wrangler secret put OPENAI_API_KEY
-# npx wrangler secret put OPENROUTER_API_KEY
+git checkout main
+npm run secrets:production
+npm run deploy:production
 ```
+
+Add the production **workers.dev** URL to Google OAuth **redirect URIs** (`…/api/auth/callback`) and **JavaScript origins**.
 
 Quick OpenRouter smoke test:
 

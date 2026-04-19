@@ -9,7 +9,11 @@
     "dev:worker": "wrangler dev --port 8787",
     "build": "vite build",
     "preview": "npm run build && wrangler dev",
-    "deploy": "npm run build && dotenv -e .env -- wrangler deploy",
+    "deploy": "npm run deploy:dev",
+    "secrets:dev": "dotenv -e .env -- node scripts/push-worker-secrets.mjs",
+    "deploy:dev": "npm run build && dotenv -e .env -- wrangler deploy",
+    "secrets:production": "dotenv -e .env -- node scripts/push-worker-secrets.mjs --env production",
+    "deploy:production": "npm run build && dotenv -e .env -- wrangler deploy --env production",
     "cf-typegen": "wrangler types",
     "lint": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.worker.json --noEmit"
   },
