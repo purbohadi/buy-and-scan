@@ -73,6 +73,20 @@ Set `RECEIPT_AI_PROVIDER` via `wrangler.toml` / dashboard vars or (local) `.dev.
 
    Open http://localhost:5173
 
+## Cloudflare CLI (optional)
+
+`wrangler.jsonc` includes **`account_id`** for this project. For **headless** or **CI** auth, set an API token (never commit it):
+
+1. Copy `.env.cloudflare.example` → **`.env.cloudflare`** (gitignored).
+2. Set `CLOUDFLARE_API_TOKEN` (and optionally `CLOUDFLARE_ACCOUNT_ID` if not using `account_id` in wrangler).
+
+```bash
+npx wrangler whoami --env-file .env.cloudflare
+npx wrangler deploy --env-file .env.cloudflare
+```
+
+Rotate the token if it was ever pasted into a chat or committed by mistake.
+
 ## Deploy
 
 ```bash
