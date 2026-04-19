@@ -1,10 +1,10 @@
 /**
  * Push AUTH_SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET from .env
- * to the Worker using wrangler secret put (non-interactive stdin).
+ * using wrangler secret put. Target Worker is chosen by ENV_MODE in .env:
+ *   development (default) → default Worker (scan-and-parse-dev)
+ *   production             → --env production (scan-and-parse-production)
  *
- * Usage:
- *   dotenv -e .env -- node scripts/push-worker-secrets.mjs           → default Worker (dev: scan-and-parse-dev)
- *   dotenv -e .env -- node scripts/push-worker-secrets.mjs --env production
+ * Usage: dotenv -e .env -- node scripts/push-worker-secrets.mjs
  */
 import { readFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -13,9 +13,6 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const envPath = join(root, ".env");
-
-const envIdx = process.argv.indexOf("--env");
-const envFlag = envIdx !== -1 && process.argv[envIdx + 1] ? ["--env", process.argv[envIdx + 1]] : [];
 
 function parseDotEnv(text) {
   const out = {};
@@ -34,6 +31,15 @@ function parseDotEnv(text) {
   return out;
 }
 
+function wranglerEnvFlag(mode) {
+  const m = String(mode ?? "development").toLowerCase().trim();
+  if (m === "production" || m === "prod") return ["--env", "production"];
+  if (m === "development" || m === "dev" || m === "") return [];
+  console.error(`Unknown ENV_MODE="${mode}". Use development or production.`);
+  process.exit(1);
+  return [];
+}
+
 const KEYS = ["AUTH_SESSION_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"];
 
 if (!existsSync(envPath)) {
@@ -42,6 +48,10 @@ if (!existsSync(envPath)) {
 }
 
 const vars = parseDotEnv(readFileSync(envPath, "utf8"));
+const envFlag = wranglerEnvFlag(vars.ENV_MODE);
+const modeLabel = envFlag.length ? "production" : "development";
+console.log(`Pushing secrets to ${modeLabel} Worker…`);
+
 let pushed = 0;
 
 for (const key of KEYS) {

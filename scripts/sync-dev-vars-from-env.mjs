@@ -18,7 +18,7 @@ if (!existsSync(envPath)) {
 
 const raw = readFileSync(envPath, "utf8");
 const lines = raw.split(/\r?\n/);
-const skip = (key) => key.startsWith("CLOUDFLARE_");
+const skip = (key) => key.startsWith("CLOUDFLARE_") || key === "ENV_MODE";
 
 const out = [];
 for (const line of lines) {
