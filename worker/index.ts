@@ -26,13 +26,7 @@ export interface Env {
   AUTH_SESSION_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
-  /**
-   * Receipt vision: omit / `auto` = try OpenAI (if key) → OpenRouter (if key) → Workers AI.
-   * `workers` | `openai` | `openrouter` = use only that provider (must have keys as needed).
-   */
-  RECEIPT_AI_PROVIDER?: string;
-  /** Comma list overriding auto order, e.g. `openai,workers` or `openrouter,openai,workers` */
-  RECEIPT_AI_FALLBACK_CHAIN?: string;
+  /** Receipt parse: OpenAI (if set) → OpenRouter (if set) → Workers AI. */
   OPENAI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   OPENAI_BASE_URL?: string;

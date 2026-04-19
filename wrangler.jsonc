@@ -5,9 +5,6 @@
   "main": "worker/index.ts",
   "compatibility_date": "2026-04-18",
   "compatibility_flags": ["nodejs_compat"],
-  "vars": {
-    "RECEIPT_AI_PROVIDER": "auto"
-  },
   "ai": {
     "binding": "AI"
   },
@@ -33,9 +30,6 @@
   "env": {
     "development": {
       "name": "scan-and-parse-dev",
-      "vars": {
-        "RECEIPT_AI_PROVIDER": "auto"
-      },
       "ai": {
         "binding": "AI"
       },
@@ -61,9 +55,6 @@
     },
     "production": {
       "name": "scan-and-parse-production",
-      "vars": {
-        "RECEIPT_AI_PROVIDER": "auto"
-      },
       "ai": {
         "binding": "AI"
       },

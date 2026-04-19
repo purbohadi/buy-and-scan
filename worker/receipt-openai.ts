@@ -9,7 +9,6 @@ const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";
 export type ExternalProvider = "openai" | "openrouter";
 
 export type ExternalAiEnv = {
-  RECEIPT_AI_PROVIDER?: string;
   OPENAI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   OPENAI_BASE_URL?: string;

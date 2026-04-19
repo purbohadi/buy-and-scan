@@ -32,15 +32,10 @@ function extractJsonObject(text) {
   return candidate.slice(start, end + 1);
 }
 
-const provider = (process.env.RECEIPT_AI_PROVIDER ?? "").toLowerCase().trim();
 const apiKey = process.env.OPENROUTER_API_KEY ?? "";
 const baseUrl = (process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1").replace(/\/$/, "");
 const model = process.env.RECEIPT_VISION_MODEL ?? "openai/gpt-4o-mini";
 
-if (provider !== "openrouter") {
-  console.error("Set RECEIPT_AI_PROVIDER=openrouter");
-  process.exit(1);
-}
 if (!apiKey) {
   console.error("Set OPENROUTER_API_KEY");
   process.exit(1);

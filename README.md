@@ -10,43 +10,22 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 - PWA installable on your home screen; camera capture via file input (`capture="environment"`).
 - **Parse** uploads the image once; the Worker hashes the bytes (SHA-256) for duplicate detection (per user).
 - **Duplicate guard**: `409` on submit until “Confirm duplicate” if the same image was already stored for that user.
-- **Receipt AI (vision / “OCR”)**: default **`RECEIPT_AI_PROVIDER=auto`** — try **OpenAI** when `OPENAI_API_KEY` is set, then **OpenRouter** when `OPENROUTER_API_KEY` is set, then **Workers AI** (Llama 3.2 Vision). Override with `workers`, `openai`, or `openrouter` only, or set **`RECEIPT_AI_FALLBACK_CHAIN`**.
+- **Receipt AI (vision / “OCR”)**: fixed order — **OpenAI** (if `OPENAI_API_KEY` is set), else **OpenRouter** (if `OPENROUTER_API_KEY` is set), else **Cloudflare Workers AI** (Llama 3.2 Vision). Each step is tried on failure until one succeeds (`worker/receipt-parse-chain.ts`).
 
-## Receipt parsing: auto chain (OpenAI default) + fallbacks
+## Receipt parsing: OpenAI → OpenRouter → Workers AI
 
-Logic lives in **`worker/receipt-parse-chain.ts`**. External calls use **`POST …/v1/chat/completions`** with **`image_url`** (`worker/receipt-openai.ts`); Workers AI uses **`@cf/meta/llama-3.2-11b-vision-instruct`**.
+| Step | When it runs |
+|------|----------------|
+| **OpenAI** | `OPENAI_API_KEY` is set; uses `POST …/v1/chat/completions` + `image_url` (`worker/receipt-openai.ts`). |
+| **OpenRouter** | OpenAI fails or is skipped (no key); `OPENROUTER_API_KEY` is set. |
+| **Workers AI** | Always last; `@cf/meta/llama-3.2-11b-vision-instruct` (`worker/receipt-ai.ts`). |
 
-### `RECEIPT_AI_PROVIDER`
+**Secrets (optional but recommended for quality):** `OPENAI_API_KEY`, `OPENROUTER_API_KEY`.  
+**Optional vars:** `RECEIPT_VISION_MODEL`, `OPENAI_BASE_URL`, `OPENROUTER_BASE_URL`.
 
-| Value | Behavior |
-|-------|----------|
-| **`auto`** (default in `wrangler.jsonc`) | If **`OPENAI_API_KEY`** → try OpenAI. On failure, if **`OPENROUTER_API_KEY`** → try OpenRouter. On failure → **Workers AI**. If no OpenAI key, skip straight to OpenRouter (if key) then Workers AI. |
-| **`openai`** | OpenAI only (**must** set `OPENAI_API_KEY`). |
-| **`openrouter`** | OpenRouter only (**must** set `OPENROUTER_API_KEY`). |
-| **`workers`** | Workers AI only (no external keys). |
+No `RECEIPT_AI_PROVIDER` or fallback-chain env vars — order is fixed in code.
 
-### `RECEIPT_AI_FALLBACK_CHAIN` (optional, when `auto`)
-
-Comma-separated order, e.g. **`openai,workers`** or **`openrouter,openai,workers`**. Every step must have its key configured (Workers AI always available). If unset, auto uses **`openai` → `openrouter` → `workers`** (each step skipped when the key is missing).
-
-### Setup (OpenAI primary)
-
-1. **`npx wrangler secret put OPENAI_API_KEY`** (or dashboard secret).
-2. Keep **`RECEIPT_AI_PROVIDER`** = **`auto`** in `wrangler.jsonc` `vars` (already default).
-3. Optional: **`OPENROUTER_API_KEY`** for a second-tier fallback before Workers AI.
-4. Optional: **`RECEIPT_VISION_MODEL`** — default **`gpt-4o-mini`** for OpenAI; OpenRouter default **`openai/gpt-4o-mini`**. Stronger receipts: e.g. **`gpt-4o`** ([OpenAI vision](https://platform.openai.com/docs/guides/images)).
-5. Optional: **`OPENAI_BASE_URL`** for Azure OpenAI.
-
-| Variable | Role |
-|----------|------|
-| `RECEIPT_AI_PROVIDER` | `auto` \| `workers` \| `openai` \| `openrouter` |
-| `RECEIPT_AI_FALLBACK_CHAIN` | Optional custom order when `auto` |
-| `OPENAI_API_KEY` | Secret — enables OpenAI in chain |
-| `OPENROUTER_API_KEY` | Secret — enables OpenRouter in chain |
-| `RECEIPT_VISION_MODEL` | Model id for OpenAI / OpenRouter |
-| `OPENAI_BASE_URL` / `OPENROUTER_BASE_URL` | Optional API bases |
-
-**Tradeoffs:** OpenAI/OpenRouter send the image to a third-party API and bill separately; Workers AI stays on Cloudflare (Meta license “agree” handled in code).
+**Tradeoffs:** OpenAI/OpenRouter send the image to a third-party API; Workers AI stays on Cloudflare (Meta “agree” handled in code).
 
 ## Production login (`…workers.dev`) fails
 
