@@ -1,4 +1,4 @@
-import { bytesToBase64, extractJsonObject, normalizeParsed, RECEIPT_SYSTEM_PROMPT } from "./receipt-shared";
+import { bytesToBase64, parseReceiptModelText, RECEIPT_SYSTEM_PROMPT } from "./receipt-shared";
 import type { ParsedReceipt } from "./types";
 
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
@@ -23,7 +23,7 @@ function visionPayload(dataUrl: string) {
       {
         role: "user",
         content:
-          "Extract structured receipt data as JSON only. If multiple languages, prefer amounts from printed totals."
+          "Output one JSON object only (starts with {). Include every line item with quantity, unitPrice, lineTotal in numbers. Prefer printed totals. Indonesian Rupiah: currency IDR, total as number without separators."
       }
     ],
     image: dataUrl,
@@ -51,23 +51,6 @@ function workersAiOutputToText(res: unknown): string {
     }
   }
   return JSON.stringify(res);
-}
-
-function parseReceiptJsonFromModelText(text: string): ParsedReceipt {
-  const jsonStr = extractJsonObject(text);
-  if (!jsonStr) {
-    const preview = text.replace(/\s+/g, " ").trim().slice(0, 280);
-    throw new Error(
-      `Model did not return parseable JSON (preview: ${preview || "(empty)"})`
-    );
-  }
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-  } catch {
-    throw new Error("Model returned invalid JSON");
-  }
-  return normalizeParsed(parsed);
 }
 
 export async function parseReceiptWithWorkersAi(
@@ -103,12 +86,12 @@ export async function parseReceiptWithWorkersAi(
   }
 
   try {
-    return parseReceiptJsonFromModelText(text);
+    return parseReceiptModelText(text);
   } catch (first) {
     res = await runVision();
     text = workersAiOutputToText(res);
     try {
-      return parseReceiptJsonFromModelText(text);
+      return parseReceiptModelText(text);
     } catch {
       const msg = first instanceof Error ? first.message : String(first);
       throw new Error(msg);
