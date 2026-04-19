@@ -37,13 +37,22 @@ export interface Env {
 }
 
 function json(data: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(data), {
-    ...init,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      ...(init.headers ?? {})
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json; charset=utf-8");
+  if (init.headers) {
+    if (init.headers instanceof Headers) {
+      init.headers.forEach((value, key) => {
+        headers.append(key, value);
+      });
+    } else {
+      const o = init.headers as Record<string, string>;
+      for (const [k, v] of Object.entries(o)) {
+        headers.append(k, v);
+      }
     }
-  });
+  }
+  const { headers: _h, ...rest } = init;
+  return new Response(JSON.stringify(data), { ...rest, headers });
 }
 
 function redirect(location: string, setCookie?: string): Response {
