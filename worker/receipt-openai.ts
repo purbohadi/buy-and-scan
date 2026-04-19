@@ -1,4 +1,4 @@
-import { bytesToBase64, extractJsonObject, normalizeParsed, RECEIPT_SYSTEM_PROMPT } from "./receipt-shared";
+import { bytesToBase64, parseReceiptModelText, RECEIPT_SYSTEM_PROMPT } from "./receipt-shared";
 import type { ParsedReceipt } from "./types";
 
 const DEFAULT_OPENAI_BASE = "https://api.openai.com/v1";
@@ -114,10 +114,5 @@ export async function parseReceiptWithExternalProvider(
     throw new Error("Model returned no text content");
   }
 
-  const jsonStr = extractJsonObject(text);
-  if (!jsonStr) {
-    throw new Error("Model did not return parseable JSON");
-  }
-  const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-  return normalizeParsed(parsed);
+  return parseReceiptModelText(text);
 }

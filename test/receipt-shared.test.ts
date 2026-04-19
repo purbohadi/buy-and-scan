@@ -1,6 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { extractJsonObject, normalizeParsed } from "../worker/receipt-shared";
+import {
+  extractJsonObject,
+  normalizeParsed,
+  parseMoneyToNumber,
+  parseReceiptFromMarkdownStyle,
+  parseReceiptModelText
+} from "../worker/receipt-shared";
 import type { ParsedReceipt } from "../worker/types";
 
 function loadExpected(): ParsedReceipt {
@@ -24,6 +30,42 @@ describe("extractJsonObject", () => {
   it("extracts from markdown fence", () => {
     const text = '```json\n{"currency":"JPY","total":100,"items":[]}\n```';
     expect(extractJsonObject(text)).toBe('{"currency":"JPY","total":100,"items":[]}');
+  });
+});
+
+describe("parseMoneyToNumber", () => {
+  it("parses Indonesian-style Rp with dot thousands", () => {
+    expect(parseMoneyToNumber("Rp124.290")).toBe(124290);
+    expect(parseMoneyToNumber("Rp 138.100")).toBe(138100);
+  });
+});
+
+describe("parseReceiptFromMarkdownStyle", () => {
+  it("extracts vendor, total, and item names from Workers-style markdown", () => {
+    const text = `**Receipt Data Extraction** **Vendor:** Toko Gading Murni Putra **Receipt Date:** 04 Oct 2025, 11.26 **Currency:** IDR (Indonesian Rupiah) **Total:** Rp124,290 (tax-included total) **Category:** Shopping **Description:** Various household items **Items:** * **Meja Belajar Kotak S** * **V-TEC Sharpener**`;
+    const r = parseReceiptFromMarkdownStyle(text);
+    expect(r).not.toBeNull();
+    expect(r!.vendor).toContain("Gading Murni");
+    expect(r!.total).toBe(124290);
+    expect(r!.currency).toBe("IDR");
+    expect(r!.items.length).toBeGreaterThanOrEqual(1);
+    expect(r!.items.some((i) => /Meja Belajar/i.test(i.name))).toBe(true);
+  });
+});
+
+describe("parseReceiptModelText", () => {
+  it("uses JSON when present", () => {
+    const r = parseReceiptModelText('{"currency":"IDR","total":100,"items":[]}');
+    expect(r.total).toBe(100);
+    expect(r.currency).toBe("IDR");
+  });
+
+  it("falls back to markdown when no JSON", () => {
+    const text =
+      "**Vendor:** ACME **Total:** Rp1.000 **Currency:** IDR **Items:** * **Pen**";
+    const r = parseReceiptModelText(text);
+    expect(r.vendor).toContain("ACME");
+    expect(r.total).toBe(1000);
   });
 });
 
