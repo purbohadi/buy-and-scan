@@ -53,23 +53,41 @@ Your app is almost certainly in **Testing** on the **OAuth consent screen**. In 
 
 **Publishing** the app to **In production** allows any Google account, but **sensitive / restricted scopes** (e.g. Drive, Sheets) often require **Google verification** (privacy policy, domain verification, review). For a personal trip app, **Testing + test users** is usually enough.
 
-## Privacy policy and terms URLs (OAuth consent screen)
+## Google OAuth: homepage, privacy, and “verified domain”
 
-Static pages ship with the app (no React):
+Google’s [OAuth app verification user-facing homepage guidance](https://support.google.com/cloud/answer/10311615#home&zippy=%2Chomepage-requirements) requires:
 
-| Page | Path (after deploy) |
-|------|---------------------|
-| Privacy policy | `https://<your-worker-host>/privacy.html` |
-| Terms of service | `https://<your-worker-host>/terms.html` |
+- The **Application home page** accurately describes the app, explains **why** you request user data, and is **not**
+  only behind login.
+- A **visible link to your privacy policy** on that homepage, using the **exact same URL** as on the consent screen.
+- The homepage and privacy policy are on a **domain you can verify** in Search Console.
 
-Examples:
+**`*.workers.dev` is a Cloudflare subdomain, not a domain you register as “yours” in DNS.** Google often rejects it for
+verification (“not registered to you”). For production OAuth verification, use a **custom domain** you control (for
+example `app.example.com`) on Cloudflare, attach it to your Worker, verify the property in **Google Search Console**,
+then set consent screen links to that host.
 
-- Production: `https://scan-and-parse-production.pu-cf.workers.dev/privacy.html` and `…/terms.html`
-- Dev: `https://scan-and-parse-dev.<subdomain>.workers.dev/privacy.html` and `…/terms.html`
+To inject the Search Console **HTML tag** verification meta into the built homepage, set **`VITE_GOOGLE_SITE_VERIFICATION`**
+in `.env` (value = the `content` attribute only) before `npm run build` / your Workers Build.
 
-In **Google Cloud Console** → **OAuth consent screen**, set **Application home page**, **Privacy policy link**, and
-**Terms of service link** to the URLs above for the environment you are verifying (use production URLs for production
-verification).
+### Canonical URLs on your Worker (after deploy)
+
+The Worker serves **clean URLs** (recommended for consent screen):
+
+| Page | Path |
+|------|------|
+| App (SPA) | `https://<host>/` |
+| Privacy policy | `https://<host>/privacy` |
+| Terms of service | `https://<host>/terms` |
+
+`/privacy.html` and `/terms.html` **redirect** to `/privacy` and `/terms`.
+
+The built **`index.html`** includes a short **public** description of the app, why Google data is requested, and links
+to **Privacy** and **Terms** before React loads (so crawlers and reviewers see them without signing in). The sign-in
+screen repeats the same policy links.
+
+In **OAuth consent screen**, set **Application home page**, **Privacy policy link**, and **Terms of service link** to
+the **same** `https://<your-verified-host>/…` values (no mismatch with `.html` unless you use that everywhere).
 
 ## Google Cloud setup
 

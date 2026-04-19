@@ -5,11 +5,78 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0f172a" />
-    <meta name="description" content="Scan receipts with your phone, parse with AI, review, and sync." />
-    <title>Scan & Parse</title>
+    <meta
+      name="description"
+      content="Scan & Parse: photograph receipts, parse with AI, edit and approve, store in your account and sync to Google Sheets. Sign-in uses Google for identity; optional Google Drive access creates your receipt spreadsheet."
+    />
+    <title>Scan &amp; Parse — Receipt scanner</title>
+    <style>
+      /* Shown before React hydrates; hidden once #root has content (same URL = one homepage). */
+      #preboot-home {
+        max-width: 42rem;
+        margin: 0 auto;
+        padding: 1.25rem 1rem 0.5rem;
+        font-family: system-ui, sans-serif;
+        line-height: 1.55;
+        color: #e2e8f0;
+        background: #020617;
+      }
+      #preboot-home h1 {
+        font-size: 1.35rem;
+        margin: 0 0 0.5rem;
+      }
+      #preboot-home p {
+        margin: 0 0 0.75rem;
+        color: #cbd5e1;
+        font-size: 0.95rem;
+      }
+      #preboot-home a {
+        color: #38bdf8;
+      }
+      body:has(#root > *) #preboot-home {
+        display: none;
+      }
+    </style>
   </head>
   <body>
+    <main id="preboot-home">
+      <h1>Scan &amp; Parse</h1>
+      <p>
+        <strong>Scan &amp; Parse</strong> is a web app for travelers and shoppers: you photograph a paper receipt, the
+        service suggests line items and totals using AI, you review and edit, then you can save copies in a database
+        and append rows to a <strong>Google Sheet in your own Google Drive</strong> when you connect Google.
+      </p>
+      <p>
+        <strong>Why we ask for Google data:</strong> <strong>Sign in with Google</strong> gives us your account id and
+        email so we can keep your receipts separate from other users. If you use <strong>Connect Google Drive &amp;
+        Sheets</strong>, we ask for permission only to create and update files <em>this app creates</em> in your Drive
+        (not your whole Drive) and to update that spreadsheet—so approved receipts can appear in your sheet.
+      </p>
+      <p>
+        <strong>No login required to read this page.</strong> Use the links below, then open the app when you are ready
+        to sign in.
+      </p>
+      <p>
+        <a href="/privacy">Privacy policy</a>
+        ·
+        <a href="/terms">Terms of service</a>
+      </p>
+    </main>
     <div id="root"></div>
+    <footer
+      style="
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 0.75rem 1rem 1.25rem;
+        font-size: 0.85rem;
+        color: #94a3b8;
+        font-family: system-ui, sans-serif;
+      "
+    >
+      <a href="/privacy" style="color: #38bdf8">Privacy policy</a>
+      <span aria-hidden="true"> · </span>
+      <a href="/terms" style="color: #38bdf8">Terms of service</a>
+    </footer>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -265,9 +265,11 @@ export default function App() {
     return (
       <div style={{ maxWidth: 520, margin: "0 auto", padding: "2rem 1rem" }}>
         <div className="card stack">
-          <h1 style={{ margin: 0, fontSize: "1.35rem" }}>Scan & Parse</h1>
+          <h1 style={{ margin: 0, fontSize: "1.35rem" }}>Scan &amp; Parse</h1>
           <p className="muted" style={{ margin: 0 }}>
-            Sign in with your Google account to scan receipts and save them to your database.
+            Photograph receipts, review AI-parsed line items and totals, then save and optionally sync to a Google Sheet
+            in <strong>your</strong> Drive after you connect Google. Sign-in identifies your account; we do not use your
+            Google password.
           </p>
           {error ? (
             <div className="badge warn" role="alert">
@@ -277,6 +279,12 @@ export default function App() {
           <a className="btn" href="/api/auth/login" style={{ textDecoration: "none" }}>
             Continue with Google
           </a>
+          <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+            <a href="/privacy">Privacy policy</a>
+            {" · "}
+            <a href="/terms">Terms of service</a>
+            {" — same links as on the OAuth consent screen."}
+          </p>
         </div>
       </div>
     );
