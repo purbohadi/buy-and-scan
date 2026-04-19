@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy — Scan &amp; Parse</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        line-height: 1.55;
+        max-width: 42rem;
+        margin: 0 auto;
+        padding: 1.5rem;
+        color: #e2e8f0;
+        background: #0f172a;
+      }
+      a {
+        color: #38bdf8;
+      }
+      h1 {
+        font-size: 1.35rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        margin-top: 1.75rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Privacy Policy</h1>
+    <p><strong>Scan &amp; Parse</strong> — Last updated: April 2026</p>
+    <p>
+      This policy describes how the Scan &amp; Parse web application (“the App”) handles information when you use it
+      to photograph receipts, review parsed data, and optionally sync to your Google account.
+    </p>
+
+    <h2>Who operates the App</h2>
+    <p>
+      The App is served as a web application on infrastructure you control (for example Cloudflare Workers). The
+      entity responsible for your deployment should be identified in your Google Cloud OAuth consent screen and
+      any store listings you publish.
+    </p>
+
+    <h2>Information we process</h2>
+    <ul>
+      <li><strong>Account.</strong> If you sign in with Google, we receive identifiers and profile data Google
+        provides (such as your Google user id and email) to create your session and scope stored data to your
+        account.</li>
+      <li><strong>Receipt images.</strong> Images you upload are processed to extract text and amounts (including via
+        AI services you configure, such as Cloudflare Workers AI or a third-party vision API).</li>
+      <li><strong>Derived receipt data.</strong> Fields you edit or approve (merchant, line items, totals, notes,
+        optional location) may be stored in a database and, if you connect Google Drive/Sheets, written to a
+        spreadsheet in your Google account.</li>
+      <li><strong>Technical data.</strong> Hosting providers may log requests, IP addresses, and similar metadata as
+        part of normal service operation.</li>
+    </ul>
+
+    <h2>How we use information</h2>
+    <p>
+      We use the information above to authenticate you, run receipt parsing, store your approved receipts, prevent
+      duplicate uploads where implemented, and sync to your Google Sheet when you enable that feature. We do not
+      sell your personal information.
+    </p>
+
+    <h2>Sharing</h2>
+    <p>
+      Data is processed by the hosting and AI providers you enable (for example Cloudflare; optionally OpenAI or
+      OpenRouter if configured). Google receives OAuth requests when you choose Google sign-in or Google Sheets
+      integration. We do not share your receipt content with advertisers.
+    </p>
+
+    <h2>Retention and deletion</h2>
+    <p>
+      Data is retained according to your deployment configuration and any tools your operator uses to delete database
+      or object storage records. To request deletion of data associated with your account, contact the operator of your
+      specific deployment.
+    </p>
+
+    <h2>Security</h2>
+    <p>
+      We use industry-standard practices where available (such as HTTPS, signed session cookies, and encrypted storage
+      of refresh tokens where implemented). No method of transmission over the Internet is 100% secure.
+    </p>
+
+    <h2>Children</h2>
+    <p>The App is not directed at children under 13, and we do not knowingly collect their personal information.</p>
+
+    <h2>Changes</h2>
+    <p>We may update this policy; the “Last updated” date will change when we do. Continued use after changes means you
+      accept the updated policy.</p>
+
+    <h2>Contact</h2>
+    <p>
+      For questions about this policy for a specific deployment, contact the person or organization that provided you
+      the App link.
+    </p>
+    <p><a href="/">Back to app</a></p>
+  </body>
+</html>

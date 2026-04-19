@@ -53,6 +53,24 @@ Your app is almost certainly in **Testing** on the **OAuth consent screen**. In 
 
 **Publishing** the app to **In production** allows any Google account, but **sensitive / restricted scopes** (e.g. Drive, Sheets) often require **Google verification** (privacy policy, domain verification, review). For a personal trip app, **Testing + test users** is usually enough.
 
+## Privacy policy and terms URLs (OAuth consent screen)
+
+Static pages ship with the app (no React):
+
+| Page | Path (after deploy) |
+|------|---------------------|
+| Privacy policy | `https://<your-worker-host>/privacy.html` |
+| Terms of service | `https://<your-worker-host>/terms.html` |
+
+Examples:
+
+- Production: `https://scan-and-parse-production.pu-cf.workers.dev/privacy.html` and `…/terms.html`
+- Dev: `https://scan-and-parse-dev.<subdomain>.workers.dev/privacy.html` and `…/terms.html`
+
+In **Google Cloud Console** → **OAuth consent screen**, set **Application home page**, **Privacy policy link**, and
+**Terms of service link** to the URLs above for the environment you are verifying (use production URLs for production
+verification).
+
 ## Google Cloud setup
 
 1. Create an OAuth **Web application** client.
