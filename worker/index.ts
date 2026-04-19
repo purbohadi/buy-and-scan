@@ -26,7 +26,7 @@ export interface Env {
   AUTH_SESSION_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
-  /** Receipt parse: OpenAI (if set) → OpenRouter (if set) → Workers AI. */
+  /** Receipt parse: OpenRouter (if set) → OpenAI (if set) → Workers AI. */
   OPENAI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   OPENAI_BASE_URL?: string;
