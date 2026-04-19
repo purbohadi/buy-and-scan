@@ -59,12 +59,37 @@
       #preboot-home .policy-callout strong {
         color: #f8fafc;
       }
-      body:has(#root > *) #preboot-home {
-        display: none;
+      /* Do not hide #preboot-home — Google verification crawlers may only see post-JS DOM.
+         Instead collapse it visually after the app loads so privacy links stay in document. */
+      body.app-ready #preboot-home {
+        max-height: 0;
+        overflow: hidden;
+        padding: 0 1rem;
+        margin: 0;
+        opacity: 0;
+        pointer-events: none;
+      }
+      /* Always visible on every URL load — satisfies "homepage includes link to privacy policy" after hydration. */
+      #site-legal-links {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.88rem;
+        padding: 0.5rem 1rem;
+        text-align: center;
+        background: #0f172a;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      }
+      #site-legal-links a {
+        color: #38bdf8;
+        font-weight: 600;
       }
     </style>
   </head>
   <body>
+    <nav id="site-legal-links" aria-label="Legal">
+      <a href="/privacy" rel="privacy-policy">Privacy policy</a>
+      <span style="color: #64748b"> · </span>
+      <a href="/terms" rel="terms-of-service">Terms of service</a>
+    </nav>
     <main id="preboot-home">
       <h1>Scan &amp; Parse</h1>
       <p class="tagline">Receipt capture, AI-assisted parsing, review, and optional sync to your Google Sheet.</p>
@@ -111,9 +136,9 @@
           <strong>Privacy policy</strong> — Use the same URL here and on your Google Cloud OAuth consent screen:
         </p>
         <p style="margin: 0">
-          <a href="/privacy">Open privacy policy</a>
+          <a href="/privacy" rel="privacy-policy">Open privacy policy</a>
           &nbsp;·&nbsp;
-          <a href="/terms">Terms of service</a>
+          <a href="/terms" rel="terms-of-service">Terms of service</a>
         </p>
       </div>
 

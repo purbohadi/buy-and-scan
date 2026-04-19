@@ -65,7 +65,7 @@ Official checklist: [OAuth app verification — homepage requirements](https://s
 | Explain why you request user data | Same block documents **Sign in with Google**, **Drive (`drive.file`)**, and **Sheets** purposes in plain language. |
 | **Verified domain you own** | **You must use a custom domain** (e.g. `https://receipts.yourdomain.com/`) on Cloudflare, verify it in **Google Search Console**. **`*.workers.dev` is usually rejected** (“not registered to you”) because you do not register that subdomain in DNS as your property. |
 | Not only third-party social hosts | Do not use Google Sites / Facebook / etc. as the only homepage. **Your Worker + your domain** is fine. |
-| **Privacy link on homepage**, same URL as consent screen | Homepage links to **`/privacy`**; set consent screen **Privacy policy** to **`https://&lt;your-domain&gt;/privacy`** (identical string). |
+| **Privacy link on homepage**, same URL as consent screen | **`#site-legal-links`** at the top of every page (never removed) includes **`/privacy`** with **`rel="privacy-policy"`**. **`index.html`** body footer also links **`/privacy`**. Match consent screen **exactly** (e.g. `https://&lt;host&gt;/privacy`). |
 | Visible **without login** | Public copy is in static HTML; **footer** always shows **Privacy** and **Terms**. Sign-in is only for the app below. |
 | **Responsive** URL | Ensure `GET https://<your-domain>/` returns **200** HTML quickly (no infinite client-only blank state for bots). |
 | **No redirect** to a **different domain** than consent screen | Homepage, privacy, and OAuth redirects should all stay on the **same** host you list on the consent screen. |

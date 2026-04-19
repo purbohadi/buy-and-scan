@@ -298,6 +298,11 @@ export default function App() {
           <p className="muted" style={{ margin: "0.25rem 0 0" }}>
             Tokyo trip receipts: snap, review, approve, sync to your Google Sheet in Drive.
           </p>
+          <p className="muted" style={{ margin: "0.35rem 0 0", fontSize: "0.82rem" }}>
+            <a href="/privacy">Privacy policy</a>
+            {" · "}
+            <a href="/terms">Terms</a>
+          </p>
         </div>
         <div className="row" style={{ gap: "0.5rem", justifyContent: "flex-end" }}>
           {auth?.user ? (

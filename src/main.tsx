@@ -8,3 +8,8 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </StrictMode>
 );
+
+// Collapse static preboot copy after React mounts; keep links in DOM for crawlers (OAuth verification).
+queueMicrotask(() => {
+  document.body.classList.add("app-ready");
+});
