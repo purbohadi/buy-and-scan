@@ -10,21 +10,22 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 - PWA installable on your home screen; camera capture via file input (`capture="environment"`).
 - **Parse** uploads the image once; the Worker hashes the bytes (SHA-256) for duplicate detection (per user). Use **JPEG or PNG** at normal camera resolution; **HEIC/HEIF is rejected** (iPhone: Settings → Camera → Formats → **Most Compatible**, or convert before upload). If the vision model returns an empty `{}`-style result, the Worker treats it as a failed step and tries the next provider (or returns a **400** with a clear error if all fail).
 - **Duplicate guard**: `409` on submit until “Confirm duplicate” if the same image was already stored for that user.
-- **Receipt AI (vision / “OCR”)**: fixed order — **OpenRouter** (if `OPENROUTER_API_KEY` is set), else **OpenAI** (if `OPENAI_API_KEY` is set), else **Cloudflare Workers AI** (Llama 3.2 Vision). Each step is tried on failure until one succeeds (`worker/receipt-parse-chain.ts`).
+- **Receipt AI (vision / “OCR”)**: fixed order — **OpenRouter** (if key) → **OpenAI** (if key) → **Google Gemini** (if `GEMINI_API_KEY`, [AI Studio](https://aistudio.google.com/apikey)) → **Cloudflare Workers AI** (Llama 3.2 Vision). Each step is tried on failure or empty output until one succeeds (`worker/receipt-parse-chain.ts`).
 
-## Receipt parsing: OpenRouter → OpenAI → Workers AI
+## Receipt parsing: OpenRouter → OpenAI → Gemini → Workers AI
 
 | Step | When it runs |
 |------|----------------|
 | **OpenRouter** | `OPENROUTER_API_KEY` is set; uses `POST …/v1/chat/completions` + `image_url` (`worker/receipt-openai.ts`). |
 | **OpenAI** | OpenRouter fails or is skipped (no key); `OPENAI_API_KEY` is set. |
+| **Gemini** | Prior steps fail or empty; `GEMINI_API_KEY` set — Google `generateContent` + vision (`worker/receipt-gemini.ts`), `responseMimeType: application/json`. Default model **`gemini-2.0-flash`**; override with **`GOOGLE_GEMINI_MODEL`**. |
 | **Workers AI** | Always last; `@cf/meta/llama-3.2-11b-vision-instruct` (`worker/receipt-ai.ts`). |
 
-**Secrets (optional but recommended):** `OPENROUTER_API_KEY` (primary external path), then `OPENAI_API_KEY` as fallback.  
-**Optional vars:** `RECEIPT_VISION_MODEL`, `OPENAI_BASE_URL`, `OPENROUTER_BASE_URL`.  
+**Secrets (optional):** `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, **`GEMINI_API_KEY`** (recommended if Workers AI returns empty JSON on your receipts).  
+**Optional vars:** `RECEIPT_VISION_MODEL`, `OPENAI_BASE_URL`, `OPENROUTER_BASE_URL`, **`GOOGLE_GEMINI_MODEL`**.  
 `RECEIPT_VISION_MODEL`: bare ids like `gpt-4o-mini` are sent to OpenAI as-is and to OpenRouter as `openai/gpt-4o-mini`. Values with a `/` (e.g. `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`) are used as-is on OpenRouter; on OpenAI fallback, only `openai/…` is mapped to the suffix; other provider prefixes fall back to the default OpenAI model.
 
-**Important:** Putting keys only in **`.env` on your laptop** does **not** give them to the **deployed** Worker. For production/dev on Cloudflare, set **`OPENROUTER_API_KEY`** (and optionally **`OPENAI_API_KEY`**) as **Worker secrets** for that environment (dashboard **Variables and Secrets**, or `npm run secrets` / `wrangler secret put`). Otherwise the chain skips OpenRouter and you only see **Workers AI** (including Meta **5016** until agreed).
+**Important:** Putting keys only in **`.env` on your laptop** does **not** give them to the **deployed** Worker. For production/dev on Cloudflare, set **`OPENROUTER_API_KEY`**, **`OPENAI_API_KEY`**, and/or **`GEMINI_API_KEY`** as **Worker secrets** (dashboard **Variables and Secrets**, or `npm run secrets` / `wrangler secret put`). Without external keys, only **Workers AI** runs last (Llama vision can return empty JSON on some receipts).
 
 No `RECEIPT_AI_PROVIDER` or fallback-chain env vars — order is fixed in code.
 
@@ -219,7 +220,7 @@ Use a **single** **`.env`** at the repo root (gitignored). Copy **`.env.example`
   - `production` → **`wrangler --env production`** → Worker **`scan-and-parse-production`**.
 - **`wrangler.jsonc`** top-level **`name`** is **`scan-and-parse`** (matches Cloudflare project / CI expectations). Named environments override the deployed worker name.
 - **`CLOUDFLARE_ACCOUNT_ID`** / **`CLOUDFLARE_API_TOKEN`** — for Wrangler CLI (`whoami`, `deploy`, D1 commands). `account_id` is also in `wrangler.jsonc`; the env var is optional if you rely on that file alone.
-- **Google + AI keys** — same `.env`; local **`wrangler dev`** reads them via a generated **`.dev.vars`** (see below). **`ENV_MODE` is not** written to `.dev.vars`. For **hosted** Workers, run **`npm run secrets`** (or set secrets in the dashboard) so **`OPENROUTER_API_KEY`** / **`OPENAI_API_KEY`** exist on the Worker, not only in `.env`.
+- **Google + AI keys** — same `.env`; local **`wrangler dev`** reads them via a generated **`.dev.vars`** (see below). **`ENV_MODE` is not** written to `.dev.vars`. For **hosted** Workers, run **`npm run secrets`** (or set secrets in the dashboard) so **`OPENROUTER_API_KEY`**, **`OPENAI_API_KEY`**, **`GEMINI_API_KEY`** exist on the Worker, not only in `.env`.
 
 **Never commit `.env`.**
 
@@ -257,7 +258,7 @@ dotenv -e .env -- wrangler whoami
 Deploy and secrets read **`ENV_MODE`** from **`.env`** (via `dotenv -e .env`). Set `ENV_MODE=development` or `ENV_MODE=production` before:
 
 ```bash
-npm run secrets   # push secrets from .env: Google + session + optional OPENROUTER_API_KEY, OPENAI_API_KEY
+npm run secrets   # push secrets from .env: Google + session + optional OPENROUTER_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY
 npm run deploy    # build + deploy to that Worker
 ```
 

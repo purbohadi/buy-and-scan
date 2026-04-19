@@ -27,9 +27,13 @@ export interface Env {
   AUTH_SESSION_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
-  /** Receipt parse: OpenRouter (if set) → OpenAI (if set) → Workers AI. */
+  /** Receipt parse: OpenRouter → OpenAI → Gemini (if GEMINI_API_KEY) → Workers AI. */
   OPENAI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
+  /** Google AI Studio API key (vision); https://aistudio.google.com/apikey */
+  GEMINI_API_KEY?: string;
+  /** Optional; default gemini-2.0-flash */
+  GOOGLE_GEMINI_MODEL?: string;
   OPENAI_BASE_URL?: string;
   OPENROUTER_BASE_URL?: string;
   RECEIPT_VISION_MODEL?: string;
