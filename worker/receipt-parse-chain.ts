@@ -1,6 +1,7 @@
 import type { ParsedReceipt } from "./types";
 import { parseReceiptWithWorkersAi } from "./receipt-ai";
 import { parseReceiptWithExternalProvider, type ExternalAiEnv, type ExternalProvider } from "./receipt-openai";
+import { isTriviallyEmptyReceipt } from "./receipt-quality";
 
 export type ParseChainEnv = ExternalAiEnv & { AI: Ai };
 
@@ -33,10 +34,16 @@ export async function parseReceiptWithFallback(
     const step = chain[i];
     const isLast = i === chain.length - 1;
     try {
+      let draft: ParsedReceipt;
       if (step === "workers") {
-        return await parseReceiptWithWorkersAi(env.AI, imageBytes, mime);
+        draft = await parseReceiptWithWorkersAi(env.AI, imageBytes, mime);
+      } else {
+        draft = await parseReceiptWithExternalProvider(env, imageBytes, mime, step as ExternalProvider);
       }
-      return await parseReceiptWithExternalProvider(env, imageBytes, mime, step as ExternalProvider);
+      if (isTriviallyEmptyReceipt(draft)) {
+        throw new Error("Model returned an empty receipt (no items or totals); image may be unreadable or wrong format.");
+      }
+      return draft;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       errors.push(`${step}: ${msg}`);
