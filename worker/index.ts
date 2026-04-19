@@ -17,7 +17,7 @@ import {
   getSessionFromRequest,
   type SessionUser
 } from "./session";
-import type { ParseResponse, ParsedReceipt, SubmitBody, SubmitResponse } from "./types";
+import type { ParseResponse, ParsedReceipt, StoredReceiptListItem, SubmitBody, SubmitResponse } from "./types";
 
 export interface Env {
   AI: Ai;
@@ -367,6 +367,40 @@ export default {
         .bind(auth.sub)
         .first<{ c: number }>();
       return json({ totalReceipts: tot?.c ?? 0 });
+    }
+
+    if (url.pathname === "/api/receipts" && request.method === "GET") {
+      const auth = await requireUser(request, env);
+      if (auth instanceof Response) return auth;
+      const { results } = await env.DB
+        .prepare(
+          `SELECT id, created_at, receipt_datetime, description, vendor, total, currency, image_public_url
+           FROM receipts WHERE user_id = ?
+           ORDER BY datetime(created_at) DESC
+           LIMIT 500`
+        )
+        .bind(auth.sub)
+        .all<{
+          id: string;
+          created_at: string;
+          receipt_datetime: string | null;
+          description: string | null;
+          vendor: string | null;
+          total: number;
+          currency: string;
+          image_public_url: string;
+        }>();
+      const receipts: StoredReceiptListItem[] = (results ?? []).map((r) => ({
+        id: r.id,
+        createdAt: r.created_at,
+        receiptDatetime: r.receipt_datetime,
+        description: r.description,
+        vendor: r.vendor,
+        total: r.total,
+        currency: r.currency,
+        imageUrl: r.image_public_url
+      }));
+      return json({ receipts });
     }
 
     if (url.pathname === "/api/parse" && request.method === "POST") {

@@ -50,3 +50,15 @@ export type SubmitResponse = {
   sheetsAppended?: boolean;
   sheetsError?: string;
 };
+
+/** Row for GET /api/receipts (user-scoped list). */
+export type StoredReceiptListItem = {
+  id: string;
+  createdAt: string;
+  receiptDatetime: string | null;
+  description: string | null;
+  vendor: string | null;
+  total: number;
+  currency: string;
+  imageUrl: string;
+};
