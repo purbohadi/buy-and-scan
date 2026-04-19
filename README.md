@@ -107,24 +107,19 @@ npm run deploy    # build + deploy to that Worker
 
 Rotate `CLOUDFLARE_API_TOKEN` if it was ever exposed.
 
-## GitHub Actions auto-deploy
+## Deploy: Cloudflare Connect to Git (Workers Builds)
 
-Workflow: **`.github/workflows/deploy.yml`**
+**Use Cloudflare only** for deploys on push (no duplicate GitHub Actions in this repo).
 
-On every **push** to **`main`** or **`dev`**, the workflow runs `npm run lint` and **`npm run deploy:ci`**, which deploys using **`CLOUDFLARE_API_TOKEN`** from GitHub and branch-based **`ENV_MODE`**:
+1. **Workers & Pages** → your Worker → **Settings** → **Builds** (Git integration).
+2. **Build command:** e.g. `npm ci && npm run build` (or `npm ci` if deploy runs build).
+3. **Deploy command:** must match how you target **development** vs **production** workers:
+   - Our `npm run deploy` reads **`ENV_MODE`** from **`.env`**, which is **not** in git. For Workers Builds, either:
+     - Set **Build variables** in the dashboard to **`ENV_MODE=production`** (or `development`) for that Worker’s pipeline, **and** use a deploy step that exports them, e.g. `ENV_MODE=production npm run deploy` as the **Deploy command**, or  
+     - Run **`wrangler deploy --env production`** / **`wrangler deploy --env development`** explicitly per Worker / branch (see [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)).
+4. Keep the **API token** in Build settings current (see **Workers Builds: stale build token** below).
 
-| Branch | `ENV_MODE` | Worker |
-|--------|------------|--------|
-| `main` | `production` | `scan-and-parse-production` |
-| `dev` | `development` | `scan-and-parse-dev` |
-
-**Setup (GitHub repo → Settings → Secrets and variables → Actions):**
-
-1. Add **`CLOUDFLARE_API_TOKEN`** — same kind of token you use locally (Workers Scripts Edit, D1, R2 as needed). `account_id` is already in `wrangler.jsonc`.
-
-Worker runtime secrets (`AUTH_SESSION_SECRET`, `GOOGLE_*`) are **not** set by this workflow; set them once per environment with `npm run secrets` locally or in the Cloudflare dashboard.
-
-If you already use **Cloudflare Workers “Connect to Git”** builds, either turn that off or remove this workflow so you do not deploy twice per push.
+Do **not** add a separate GitHub Actions deploy workflow unless you disable Workers Builds — you would deploy twice per push.
 
 ## Git branches vs `ENV_MODE`
 

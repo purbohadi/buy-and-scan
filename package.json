@@ -11,7 +11,6 @@
     "preview": "npm run build && wrangler dev",
     "secrets": "dotenv -e .env -- node scripts/push-worker-secrets.mjs",
     "deploy": "npm run build && dotenv -e .env -- node scripts/deploy-worker.mjs",
-    "deploy:ci": "npm run build && node scripts/deploy-worker.mjs",
     "cf-typegen": "wrangler types",
     "lint": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.worker.json --noEmit"
   },
