@@ -10,60 +10,43 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 - PWA installable on your home screen; camera capture via file input (`capture="environment"`).
 - **Parse** uploads the image once; the Worker hashes the bytes (SHA-256) for duplicate detection (per user).
 - **Duplicate guard**: `409` on submit until “Confirm duplicate” if the same image was already stored for that user.
-- **Receipt AI provider** (optional): default is **Cloudflare Workers AI** (Llama 3.2 Vision). Set `RECEIPT_AI_PROVIDER=openai` or `openrouter` to parse receipts with **OpenAI** or **OpenRouter** instead (same JSON schema).
+- **Receipt AI (vision / “OCR”)**: default **`RECEIPT_AI_PROVIDER=auto`** — try **OpenAI** when `OPENAI_API_KEY` is set, then **OpenRouter** when `OPENROUTER_API_KEY` is set, then **Workers AI** (Llama 3.2 Vision). Override with `workers`, `openai`, or `openrouter` only, or set **`RECEIPT_AI_FALLBACK_CHAIN`**.
 
-## Receipt parsing: OpenAI or OpenRouter (optional)
+## Receipt parsing: auto chain (OpenAI default) + fallbacks
 
-Default: **`RECEIPT_AI_PROVIDER`** unset or `workers` → uses the bound **Workers AI** model (`@cf/meta/llama-3.2-11b-vision-instruct`) — no extra API key, billed on Cloudflare.
+Logic lives in **`worker/receipt-parse-chain.ts`**. External calls use **`POST …/v1/chat/completions`** with **`image_url`** (`worker/receipt-openai.ts`); Workers AI uses **`@cf/meta/llama-3.2-11b-vision-instruct`**.
 
-You can switch **Parse** to **OpenAI** (or **OpenRouter**) for vision + OCR-style extraction: the Worker calls **`POST …/v1/chat/completions`** with an **`image_url`** (data URL) and the same JSON schema as Workers AI (`worker/receipt-openai.ts`).
+### `RECEIPT_AI_PROVIDER`
 
-### Using OpenAI for receipt vision / OCR
+| Value | Behavior |
+|-------|----------|
+| **`auto`** (default in `wrangler.jsonc`) | If **`OPENAI_API_KEY`** → try OpenAI. On failure, if **`OPENROUTER_API_KEY`** → try OpenRouter. On failure → **Workers AI**. If no OpenAI key, skip straight to OpenRouter (if key) then Workers AI. |
+| **`openai`** | OpenAI only (**must** set `OPENAI_API_KEY`). |
+| **`openrouter`** | OpenRouter only (**must** set `OPENROUTER_API_KEY`). |
+| **`workers`** | Workers AI only (no external keys). |
 
-1. Create an **[OpenAI API key](https://platform.openai.com/api-keys)**.
-2. Set Worker **secret**: `npx wrangler secret put OPENAI_API_KEY` (or dashboard **Variables and Secrets**).
-3. Set **non-secret** var **`RECEIPT_AI_PROVIDER`** to **`openai`** (`wrangler.jsonc` → `vars`, or per-environment in the dashboard / `.dev.vars` locally).
-4. Optional: **`RECEIPT_VISION_MODEL`** — OpenAI model id. Defaults to **`gpt-4o-mini`** (vision-capable, lower cost). For harder receipts try **`gpt-4o`** or **`gpt-4.1`** (check [OpenAI vision docs](https://platform.openai.com/docs/guides/images) for current model names).
-5. Optional: **`OPENAI_BASE_URL`** — defaults to `https://api.openai.com/v1`. Use your **Azure OpenAI** endpoint + deployment if applicable.
+### `RECEIPT_AI_FALLBACK_CHAIN` (optional, when `auto`)
 
-**Tradeoffs vs Workers AI**
+Comma-separated order, e.g. **`openai,workers`** or **`openrouter,openai,workers`**. Every step must have its key configured (Workers AI always available). If unset, auto uses **`openai` → `openrouter` → `workers`** (each step skipped when the key is missing).
 
-| | Workers AI (default) | OpenAI |
-|--|---------------------|--------|
-| **Billing** | Cloudflare Workers AI | OpenAI usage (separate invoice) |
-| **Meta “agree” step** | Required once per account (handled in code) | Not applicable |
-| **Data** | Image processed on Cloudflare’s stack | Image sent to OpenAI per [their policies](https://openai.com/policies) |
-| **Secrets** | None for AI | **`OPENAI_API_KEY`** on the Worker |
+### Setup (OpenAI primary)
 
-### OpenRouter (OpenAI-compatible)
+1. **`npx wrangler secret put OPENAI_API_KEY`** (or dashboard secret).
+2. Keep **`RECEIPT_AI_PROVIDER`** = **`auto`** in `wrangler.jsonc` `vars` (already default).
+3. Optional: **`OPENROUTER_API_KEY`** for a second-tier fallback before Workers AI.
+4. Optional: **`RECEIPT_VISION_MODEL`** — default **`gpt-4o-mini`** for OpenAI; OpenRouter default **`openai/gpt-4o-mini`**. Stronger receipts: e.g. **`gpt-4o`** ([OpenAI vision](https://platform.openai.com/docs/guides/images)).
+5. Optional: **`OPENAI_BASE_URL`** for Azure OpenAI.
 
-Same flow with **`RECEIPT_AI_PROVIDER=openrouter`** and **`OPENROUTER_API_KEY`**. Pick any vision model slug OpenRouter supports (e.g. `openai/gpt-4o-mini`).
-
-| Variable | When |
+| Variable | Role |
 |----------|------|
-| `RECEIPT_AI_PROVIDER` | `openai` or `openrouter` to use external vision APIs. |
-| `OPENAI_API_KEY` | Required if `RECEIPT_AI_PROVIDER=openai`. |
-| `OPENROUTER_API_KEY` | Required if `RECEIPT_AI_PROVIDER=openrouter`. |
-| `RECEIPT_VISION_MODEL` | Optional. Defaults: OpenAI `gpt-4o-mini`, OpenRouter `openai/gpt-4o-mini`. Use any vision-capable model id your provider supports. |
-| `OPENAI_BASE_URL` | Optional; default `https://api.openai.com/v1` (Azure OpenAI: set to your resource `.../openai/deployments/...` and matching model deployment name). |
-| `OPENROUTER_BASE_URL` | Optional; default `https://openrouter.ai/api/v1`. |
+| `RECEIPT_AI_PROVIDER` | `auto` \| `workers` \| `openai` \| `openrouter` |
+| `RECEIPT_AI_FALLBACK_CHAIN` | Optional custom order when `auto` |
+| `OPENAI_API_KEY` | Secret — enables OpenAI in chain |
+| `OPENROUTER_API_KEY` | Secret — enables OpenRouter in chain |
+| `RECEIPT_VISION_MODEL` | Model id for OpenAI / OpenRouter |
+| `OPENAI_BASE_URL` / `OPENROUTER_BASE_URL` | Optional API bases |
 
-```bash
-npx wrangler secret put OPENAI_API_KEY
-# or
-npx wrangler secret put OPENROUTER_API_KEY
-```
-
-Set **`RECEIPT_AI_PROVIDER`** via `wrangler.jsonc` → **`vars`** (or the dashboard) for each Worker environment. Example snippet:
-
-```jsonc
-"vars": {
-  "RECEIPT_AI_PROVIDER": "openai",
-  "RECEIPT_VISION_MODEL": "gpt-4o-mini"
-}
-```
-
-(`OPENAI_API_KEY` must still be a **secret**, not in `vars`.)
+**Tradeoffs:** OpenAI/OpenRouter send the image to a third-party API and bill separately; Workers AI stays on Cloudflare (Meta license “agree” handled in code).
 
 ## Production login (`…workers.dev`) fails
 

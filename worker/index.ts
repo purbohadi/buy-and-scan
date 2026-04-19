@@ -4,8 +4,7 @@ import { exchangeAuthCode } from "./google-api";
 import { tryServeLegalPage } from "./legal-pages";
 import { sha256Hex } from "./hash";
 import { buildGoogleAuthorizeUrl, createPkce, decodeIdToken } from "./oauth-google";
-import { parseReceiptWithOpenAiCompatible, usesExternalReceiptAi } from "./receipt-openai";
-import { parseReceiptWithWorkersAi } from "./receipt-ai";
+import { parseReceiptWithFallback } from "./receipt-parse-chain";
 import {
   appendUserReceiptToGoogleSheet,
   loadGoogleAccount,
@@ -27,8 +26,13 @@ export interface Env {
   AUTH_SESSION_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
-  /** `workers` (default), `openai`, or `openrouter` */
+  /**
+   * Receipt vision: omit / `auto` = try OpenAI (if key) → OpenRouter (if key) → Workers AI.
+   * `workers` | `openai` | `openrouter` = use only that provider (must have keys as needed).
+   */
   RECEIPT_AI_PROVIDER?: string;
+  /** Comma list overriding auto order, e.g. `openai,workers` or `openrouter,openai,workers` */
+  RECEIPT_AI_FALLBACK_CHAIN?: string;
   OPENAI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   OPENAI_BASE_URL?: string;
@@ -353,9 +357,7 @@ export default {
         const { bytes, mime } = await readBodyImage(request);
         const contentHash = await sha256Hex(bytes);
         const { duplicateCount, totalReceipts } = await duplicateStats(env.DB, auth.sub, contentHash);
-        const draft = usesExternalReceiptAi(env)
-          ? await parseReceiptWithOpenAiCompatible(env, bytes, mime)
-          : await parseReceiptWithWorkersAi(env.AI, bytes, mime);
+        const draft = await parseReceiptWithFallback(env, bytes, mime);
         const body: ParseResponse = {
           draft,
           contentHash,

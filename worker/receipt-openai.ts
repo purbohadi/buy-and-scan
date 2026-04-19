@@ -6,6 +6,8 @@ const DEFAULT_OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";
 
+export type ExternalProvider = "openai" | "openrouter";
+
 export type ExternalAiEnv = {
   RECEIPT_AI_PROVIDER?: string;
   OPENAI_API_KEY?: string;
@@ -15,25 +17,13 @@ export type ExternalAiEnv = {
   RECEIPT_VISION_MODEL?: string;
 };
 
-function providerMode(env: ExternalAiEnv): "openai" | "openrouter" | null {
-  const p = (env.RECEIPT_AI_PROVIDER ?? "workers").toLowerCase().trim();
-  if (p === "openai") return "openai";
-  if (p === "openrouter") return "openrouter";
-  return null;
-}
-
-export function usesExternalReceiptAi(env: ExternalAiEnv): boolean {
-  return providerMode(env) !== null;
-}
-
-export async function parseReceiptWithOpenAiCompatible(
+/** OpenAI or OpenRouter vision via chat/completions + image_url. */
+export async function parseReceiptWithExternalProvider(
   env: ExternalAiEnv,
   imageBytes: Uint8Array,
-  mime: string
+  mime: string,
+  mode: ExternalProvider
 ): Promise<ParsedReceipt> {
-  const mode = providerMode(env);
-  if (!mode) throw new Error("External AI not configured");
-
   let apiKey: string;
   let baseUrl: string;
   let model: string;
@@ -42,12 +32,12 @@ export async function parseReceiptWithOpenAiCompatible(
     apiKey = env.OPENAI_API_KEY ?? "";
     baseUrl = (env.OPENAI_BASE_URL ?? DEFAULT_OPENAI_BASE).replace(/\/$/, "");
     model = env.RECEIPT_VISION_MODEL ?? DEFAULT_OPENAI_MODEL;
-    if (!apiKey) throw new Error("OPENAI_API_KEY is required when RECEIPT_AI_PROVIDER=openai");
+    if (!apiKey) throw new Error("OPENAI_API_KEY is required for OpenAI vision");
   } else {
     apiKey = env.OPENROUTER_API_KEY ?? "";
     baseUrl = (env.OPENROUTER_BASE_URL ?? DEFAULT_OPENROUTER_BASE).replace(/\/$/, "");
     model = env.RECEIPT_VISION_MODEL ?? DEFAULT_OPENROUTER_MODEL;
-    if (!apiKey) throw new Error("OPENROUTER_API_KEY is required when RECEIPT_AI_PROVIDER=openrouter");
+    if (!apiKey) throw new Error("OPENROUTER_API_KEY is required for OpenRouter vision");
   }
 
   const dataUrl = `data:${mime};base64,${bytesToBase64(imageBytes)}`;
