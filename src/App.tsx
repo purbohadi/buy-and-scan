@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeDiscountItemName } from "../shared/discount-label";
 import { sanitizeMoneyAmount, sanitizeReceiptMoney } from "../shared/money";
+import { sha256Hex } from "./hash";
 import { MoneyField } from "./MoneyField";
-import type { ParseResponse, ParsedReceipt, ReceiptItem, SubmitResponse } from "./types";
+import { Spinner } from "./Spinner";
+import type { ParseResponse, ParsedReceipt, ReceiptItem, SubmitBody, SubmitResponse } from "./types";
 
 type AuthMe = {
   user: { sub: string; email: string } | null;
@@ -62,12 +64,18 @@ function sumItems(items: ReceiptItem[], currency: string): number {
   return sanitizeMoneyAmount(items.reduce((s, it) => s + (Number(it.lineTotal) || 0), 0), c);
 }
 
+type LoadingAction = "idle" | "parse" | "submit" | "upload";
+
+function fileToBytes(file: File): Promise<Uint8Array> {
+  return file.arrayBuffer().then((ab) => new Uint8Array(ab));
+}
+
 export default function App() {
   const [auth, setAuth] = useState<AuthMe | null>(null);
   const [totalReceipts, setTotalReceipts] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState<LoadingAction>("idle");
   const [error, setError] = useState<string | null>(null);
   const [parseResult, setParseResult] = useState<ParseResponse | null>(null);
   const [receipt, setReceipt] = useState<ParsedReceipt | null>(null);
@@ -111,6 +119,7 @@ export default function App() {
     setLastSubmit(null);
     setError(null);
     setFile(null);
+    setLoading("idle");
   }, []);
 
   const refreshAuth = useCallback(async () => {
@@ -129,6 +138,7 @@ export default function App() {
   }, [refreshAuth]);
 
   const logout = async () => {
+    if (loading !== "idle") return;
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     await refreshAuth();
     resetFlow();
@@ -156,7 +166,7 @@ export default function App() {
 
   const parseImage = async () => {
     if (!file) return;
-    setBusy(true);
+    setLoading("parse");
     setError(null);
     setLastSubmit(null);
     try {
@@ -173,7 +183,62 @@ export default function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Parse failed");
     } finally {
-      setBusy(false);
+      setLoading("idle");
+    }
+  };
+
+  const submitImageOnly = async (imageFile?: File | null) => {
+    const f = imageFile ?? file;
+    if (!f) return;
+    setLoading("upload");
+    setError(null);
+    setLastSubmit(null);
+    try {
+      const bytes = await fileToBytes(f);
+      const hash = await sha256Hex(bytes);
+      const imageBase64 = await fileToBase64(f);
+      const receipt = sanitizeReceiptMoney({
+        currency: "JPY",
+        total: 0,
+        items: [],
+        category: "other",
+        description: ""
+      });
+      const body: SubmitBody = {
+        contentHash: hash,
+        imageMime: f.type || "image/jpeg",
+        imageBase64,
+        receipt,
+        imageOnly: true,
+        confirmDuplicate
+      };
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body)
+      });
+      const data = (await res.json()) as SubmitResponse & { error?: string };
+      if (res.status === 409 && data.duplicateBlocked) {
+        setError(
+          `This receipt image was already stored (${data.duplicateCount ?? 0} time(s)). Check "Confirm duplicate" to save anyway.`
+        );
+        setLastSubmit(data);
+        return;
+      }
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setLastSubmit(data);
+      setTotalReceipts(data.totalReceipts);
+      setFile(null);
+      setParseResult(null);
+      setReceipt(null);
+      setContentHash(null);
+      setConfirmDuplicate(false);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setLoading("idle");
     }
   };
 
@@ -228,7 +293,7 @@ export default function App() {
 
   const submit = async () => {
     if (!file || !receipt || !contentHash) return;
-    setBusy(true);
+    setLoading("submit");
     setError(null);
     setLastSubmit(null);
     try {
@@ -266,7 +331,7 @@ export default function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Submit failed");
     } finally {
-      setBusy(false);
+      setLoading("idle");
     }
   };
 
@@ -277,6 +342,9 @@ export default function App() {
 
   const signedIn = Boolean(auth?.user);
   const authReady = auth !== null;
+  const isBusy = loading !== "idle";
+  const parseFailedShowUpload = Boolean(error && file && !receipt);
+  const uploadOnlyInputRef = useRef<HTMLInputElement>(null);
 
   if (authReady && auth.authConfigured && !signedIn) {
     return (
@@ -333,12 +401,21 @@ export default function App() {
             </span>
           ) : null}
           {signedIn && auth?.googleLinked && auth.spreadsheetUrl ? (
-            <a className="btn btn-secondary" href={auth.spreadsheetUrl} target="_blank" rel="noreferrer">
+            <a
+              className={`btn btn-secondary ${isBusy ? "pointer-events-none opacity-50" : ""}`}
+              href={auth.spreadsheetUrl}
+              target="_blank"
+              rel="noreferrer"
+              aria-disabled={isBusy}
+              onClick={(e) => {
+                if (isBusy) e.preventDefault();
+              }}
+            >
               Open sheet
             </a>
           ) : null}
           {signedIn ? (
-            <button type="button" className="btn btn-secondary" onClick={() => void logout()}>
+            <button type="button" className="btn btn-secondary" disabled={isBusy} onClick={() => void logout()}>
               Sign out
             </button>
           ) : null}
@@ -356,7 +433,14 @@ export default function App() {
               Approve access so we can create a <strong>Scan &amp; Parse</strong> spreadsheet in your Drive and append
               each saved receipt. Google may ask you to confirm again so we can keep access while you travel.
             </p>
-            <button type="button" className="btn" onClick={() => (window.location.href = "/api/auth/link-google")}>
+            <button
+              type="button"
+              className="btn"
+              disabled={isBusy}
+              onClick={() => {
+                if (!isBusy) window.location.href = "/api/auth/link-google";
+              }}
+            >
               Connect Google Drive &amp; Sheet
             </button>
           </section>
@@ -365,7 +449,7 @@ export default function App() {
         <section className="card stack">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <strong>1. Capture</strong>
-            <button type="button" className="btn btn-secondary" onClick={resetFlow} disabled={busy}>
+            <button type="button" className="btn btn-secondary" onClick={resetFlow} disabled={isBusy}>
               Reset
             </button>
           </div>
@@ -382,6 +466,7 @@ export default function App() {
               type="file"
               accept="image/*"
               capture="environment"
+              disabled={isBusy}
               onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
             />
           </div>
@@ -391,10 +476,57 @@ export default function App() {
               type="button"
               className="btn"
               onClick={parseImage}
-              disabled={!file || busy || !signedIn || !auth?.googleLinked}
+              disabled={!file || isBusy || !signedIn || !auth?.googleLinked}
             >
-              {busy ? "Working…" : "Parse with AI"}
+              {loading === "parse" ? <Spinner /> : null}
+              {loading === "parse" ? "Parsing…" : "Parse with AI"}
             </button>
+            {parseFailedShowUpload ? (
+              <>
+                <label className="row" style={{ gap: "0.35rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={confirmDuplicate}
+                    disabled={isBusy}
+                    onChange={(e) => setConfirmDuplicate(e.target.checked)}
+                  />
+                  <span className="muted">Confirm duplicate image (required if this file was saved before)</span>
+                </label>
+                <input
+                  ref={uploadOnlyInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  disabled={isBusy}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    e.target.value = "";
+                    if (f) {
+                      onPickFile(f);
+                      void submitImageOnly(f);
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={isBusy || !signedIn || !auth?.googleLinked}
+                  onClick={() => void submitImageOnly()}
+                >
+                  {loading === "upload" ? <Spinner /> : null}
+                  {loading === "upload" ? "Saving…" : "Save current image only"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={isBusy || !signedIn || !auth?.googleLinked}
+                  onClick={() => uploadOnlyInputRef.current?.click()}
+                >
+                  Choose different image to upload
+                </button>
+              </>
+            ) : null}
           </div>
         </section>
 
@@ -413,6 +545,7 @@ export default function App() {
                 <input
                   id="vendor"
                   value={receipt.vendor ?? ""}
+                  disabled={isBusy}
                   onChange={(e) => setReceipt({ ...receipt, vendor: e.target.value })}
                 />
               </div>
@@ -421,6 +554,7 @@ export default function App() {
                 <input
                   id="when"
                   value={receipt.receiptDatetime ?? ""}
+                  disabled={isBusy}
                   onChange={(e) => setReceipt({ ...receipt, receiptDatetime: e.target.value })}
                 />
               </div>
@@ -429,6 +563,7 @@ export default function App() {
                 <input
                   id="currency"
                   value={receipt.currency}
+                  disabled={isBusy}
                   onChange={(e) =>
                   setReceipt(sanitizeReceiptMoney({ ...receipt, currency: e.target.value.toUpperCase() }))
                 }
@@ -439,6 +574,7 @@ export default function App() {
                 label="Total"
                 value={receipt.total}
                 currency={receipt.currency}
+                disabled={isBusy}
                 onCommit={(n) => setReceipt((r) => (r ? { ...r, total: n } : r))}
               />
               <div className="field">
@@ -446,6 +582,7 @@ export default function App() {
                 <input
                   id="category"
                   value={receipt.category ?? ""}
+                  disabled={isBusy}
                   onChange={(e) => setReceipt({ ...receipt, category: e.target.value })}
                 />
               </div>
@@ -454,6 +591,7 @@ export default function App() {
                 <input
                   id="desc"
                   value={receipt.description ?? ""}
+                  disabled={isBusy}
                   onChange={(e) => setReceipt({ ...receipt, description: e.target.value })}
                 />
               </div>
@@ -463,6 +601,7 @@ export default function App() {
               <input
                 id="loc"
                 value={receipt.location?.label ?? ""}
+                disabled={isBusy}
                 onChange={(e) =>
                   setReceipt({
                     ...receipt,
@@ -472,7 +611,7 @@ export default function App() {
               />
             </div>
             <div className="row">
-              <button type="button" className="btn btn-secondary" onClick={attachLocation}>
+              <button type="button" className="btn btn-secondary" disabled={isBusy} onClick={attachLocation}>
                 Use GPS coordinates
               </button>
               {receipt.location?.latitude != null ? (
@@ -484,7 +623,7 @@ export default function App() {
 
             <div className="row" style={{ justifyContent: "space-between" }}>
               <strong>Line items</strong>
-              <button type="button" className="btn btn-secondary" onClick={addItem}>
+              <button type="button" className="btn btn-secondary" disabled={isBusy} onClick={addItem}>
                 Add row
               </button>
             </div>
@@ -506,6 +645,7 @@ export default function App() {
                         <input
                           className="w-full min-w-[8rem] rounded-lg border border-slate-500/40 bg-slate-950/60 px-2 py-1.5 text-sm outline-none ring-sky-400/30 focus:ring-2"
                           value={it.name}
+                          disabled={isBusy}
                           onChange={(e) => updateItem(idx, { name: e.target.value })}
                         />
                       </td>
@@ -516,6 +656,7 @@ export default function App() {
                           step={1}
                           className="w-full rounded-lg border border-slate-500/40 bg-slate-950/60 px-2 py-1.5 font-mono text-sm tabular-nums outline-none ring-sky-400/30 focus:ring-2"
                           value={it.quantity}
+                          disabled={isBusy}
                           onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) })}
                         />
                       </td>
@@ -524,6 +665,7 @@ export default function App() {
                           value={it.unitPrice}
                           currency={receipt.currency}
                           compact
+                          disabled={isBusy}
                           onCommit={(n) => updateItem(idx, { unitPrice: n })}
                         />
                       </td>
@@ -532,11 +674,17 @@ export default function App() {
                           value={it.lineTotal}
                           currency={receipt.currency}
                           compact
+                          disabled={isBusy}
                           onCommit={(n) => updateItem(idx, { lineTotal: n })}
                         />
                       </td>
                       <td className="px-2 py-2">
-                        <button type="button" className="btn btn-secondary" onClick={() => removeItem(idx)}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={isBusy}
+                          onClick={() => removeItem(idx)}
+                        >
                           Remove
                         </button>
                       </td>
@@ -550,6 +698,7 @@ export default function App() {
               <input
                 type="checkbox"
                 checked={confirmDuplicate}
+                disabled={isBusy}
                 onChange={(e) => setConfirmDuplicate(e.target.checked)}
               />
               <span className="muted">Confirm duplicate image (allow saving again)</span>
@@ -560,16 +709,17 @@ export default function App() {
                 type="button"
                 className="btn"
                 onClick={submit}
-                disabled={busy || !signedIn || !auth?.googleLinked}
+                disabled={isBusy || !signedIn || !auth?.googleLinked}
               >
-                Approve & save
+                {loading === "submit" ? <Spinner /> : null}
+                {loading === "submit" ? "Saving…" : "Approve & save"}
               </button>
             </div>
           </section>
         ) : null}
 
         {error ? (
-          <div className="badge warn" role="alert">
+          <div className="badge warn" role="alert" aria-live="polite">
             {error}
           </div>
         ) : null}
