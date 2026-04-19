@@ -176,8 +176,8 @@ export function ReceiptsList({ signedIn, googleLinked, refreshKey = 0, parentBus
           <thead>
             <tr className="border-b border-slate-500/20 text-xs font-semibold uppercase tracking-wide text-slate-400">
               <th className="w-10 px-2 py-2" aria-label="Select" />
-              <th className="px-3 py-2">Date Time</th>
-              <th className="px-3 py-2">Description</th>
+              <th className="px-3 py-2">Date</th>
+              <th className="px-3 py-2">AI Summary</th>
               <th className="px-3 py-2 whitespace-nowrap">Total</th>
               <th className="px-3 py-2">Receipt</th>
             </tr>

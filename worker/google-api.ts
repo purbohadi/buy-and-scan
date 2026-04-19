@@ -125,15 +125,15 @@ function locationCell(receipt: ParsedReceipt): string {
 
 const RECEIPT_SHEET_TITLE = "Receipts";
 const HEADER_ROW = [
-  "number",
-  "id",
-  "Date Time",
-  "location",
+  "No",
+  "ID",
+  "Date",
+  "Location",
   "AI Summary",
-  "category",
-  "items detail",
-  "total price",
-  "currency",
+  "Category",
+  "Items",
+  "Total",
+  "Currency",
   "Receipt"
 ];
 

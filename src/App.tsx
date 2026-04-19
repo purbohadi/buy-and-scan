@@ -751,8 +751,7 @@ export default function App() {
           <section className="card stack">
             <strong>My receipts</strong>
             <p className="muted" style={{ margin: 0 }}>
-              Saved receipts for your account (newest first). Date Time uses receipt date when set, otherwise saved
-              time.
+              Saved receipts for your account (newest first). Date uses receipt date when set, otherwise saved time.
             </p>
             <ReceiptsList
               signedIn={signedIn}
