@@ -1,10 +1,7 @@
 # Copy to .dev.vars (not committed) for local Wrangler
 
-# Google Sign-In (OAuth 2.0) — create a "Web application" OAuth client in Google Cloud Console
+# Google OAuth (Web client) — add scopes in Cloud Console: Drive (per-file), Sheets
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-# Random string (32+ chars) to sign session cookies
+# Random string (32+ chars): signs session cookies and encrypts stored Google refresh tokens
 AUTH_SESSION_SECRET=
-
-GOOGLE_APPS_SCRIPT_URL=
-GOOGLE_APPS_SCRIPT_SECRET=

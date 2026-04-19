@@ -1,14 +1,14 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { appendReceiptToSheet } from "./google-sheet";
+import { exchangeAuthCode } from "./google-api";
 import { sha256Hex } from "./hash";
-import {
-  buildGoogleAuthorizeUrl,
-  createPkce,
-  decodeIdToken,
-  exchangeCodeForTokens
-} from "./oauth-google";
+import { buildGoogleAuthorizeUrl, createPkce, decodeIdToken } from "./oauth-google";
 import { parseReceiptWithAi } from "./receipt-ai";
+import {
+  appendUserReceiptToGoogleSheet,
+  loadGoogleAccount,
+  persistGoogleAccount
+} from "./user-google";
 import {
   buildClearSessionCookieHeader,
   buildSetSessionCookieHeader,
@@ -25,8 +25,6 @@ export interface Env {
   AUTH_SESSION_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
-  GOOGLE_APPS_SCRIPT_URL?: string;
-  GOOGLE_APPS_SCRIPT_SECRET?: string;
 }
 
 function json(data: unknown, init: ResponseInit = {}): Response {
@@ -116,6 +114,15 @@ async function pruneOAuthStates(db: D1Database): Promise<void> {
   await db.prepare("DELETE FROM oauth_states WHERE created_at < ?").bind(cutoff).run();
 }
 
+async function googleLinkStatus(
+  db: D1Database,
+  userId: string
+): Promise<{ googleLinked: boolean; spreadsheetUrl: string | null }> {
+  const acc = await loadGoogleAccount(db, userId);
+  const googleLinked = Boolean(acc?.refresh_token_enc && acc?.spreadsheet_id);
+  return { googleLinked, spreadsheetUrl: acc?.spreadsheet_url ?? null };
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -124,9 +131,13 @@ export default {
     if (url.pathname === "/api/auth/me" && request.method === "GET") {
       const secret = env.AUTH_SESSION_SECRET;
       const oauthReady = Boolean(secret && env.GOOGLE_CLIENT_ID);
-      if (!secret) return json({ user: null, authConfigured: false });
+      if (!secret) return json({ user: null, authConfigured: false, googleLinked: false, spreadsheetUrl: null });
       const user = await getSessionFromRequest(request, secret);
-      return json({ user, authConfigured: oauthReady });
+      if (!user) {
+        return json({ user: null, authConfigured: oauthReady, googleLinked: false, spreadsheetUrl: null });
+      }
+      const { googleLinked, spreadsheetUrl } = await googleLinkStatus(env.DB, user.sub);
+      return json({ user, authConfigured: oauthReady, googleLinked, spreadsheetUrl });
     }
 
     if (url.pathname === "/api/auth/login" && request.method === "GET") {
@@ -139,15 +150,44 @@ export default {
       const state = crypto.randomUUID();
       const { verifier, challenge } = await createPkce();
       await env.DB
-        .prepare("INSERT INTO oauth_states (state, code_verifier, created_at) VALUES (?, ?, ?)")
-        .bind(state, verifier, Math.floor(Date.now() / 1000))
+        .prepare("INSERT INTO oauth_states (state, code_verifier, created_at, force_consent) VALUES (?, ?, ?, ?)")
+        .bind(state, verifier, Math.floor(Date.now() / 1000), 0)
         .run();
       const redirectUri = `${url.origin}/api/auth/callback`;
       const location = buildGoogleAuthorizeUrl({
         clientId,
         redirectUri,
         state,
-        codeChallenge: challenge
+        codeChallenge: challenge,
+        forceConsent: false
+      });
+      return redirect(location);
+    }
+
+    if (url.pathname === "/api/auth/link-google" && request.method === "GET") {
+      const clientId = env.GOOGLE_CLIENT_ID;
+      const secret = env.AUTH_SESSION_SECRET;
+      if (!clientId || !secret) {
+        return json({ error: "Google OAuth is not configured on the server" }, { status: 503 });
+      }
+      const sessionUser = await getSessionFromRequest(request, secret);
+      if (!sessionUser) {
+        return redirect(`${url.origin}/?auth=error&reason=${encodeURIComponent("sign_in_first")}`);
+      }
+      await pruneOAuthStates(env.DB);
+      const state = crypto.randomUUID();
+      const { verifier, challenge } = await createPkce();
+      await env.DB
+        .prepare("INSERT INTO oauth_states (state, code_verifier, created_at, force_consent) VALUES (?, ?, ?, ?)")
+        .bind(state, verifier, Math.floor(Date.now() / 1000), 1)
+        .run();
+      const redirectUri = `${url.origin}/api/auth/callback`;
+      const location = buildGoogleAuthorizeUrl({
+        clientId,
+        redirectUri,
+        state,
+        codeChallenge: challenge,
+        forceConsent: true
       });
       return redirect(location);
     }
@@ -164,24 +204,63 @@ export default {
       if (!code || !state || !clientId || !clientSecret || !authSecret) {
         return redirect(`${base}?auth=error&reason=${encodeURIComponent("missing_params")}`);
       }
-      const row = await env.DB.prepare("SELECT code_verifier FROM oauth_states WHERE state = ?").bind(state).first<{
-        code_verifier: string;
-      }>();
+      const row = await env.DB
+        .prepare("SELECT code_verifier, force_consent FROM oauth_states WHERE state = ?")
+        .bind(state)
+        .first<{ code_verifier: string; force_consent: number }>();
       await env.DB.prepare("DELETE FROM oauth_states WHERE state = ?").bind(state).run();
       if (!row?.code_verifier) {
         return redirect(`${base}?auth=error&reason=${encodeURIComponent("invalid_state")}`);
       }
+      const forceConsent = row.force_consent === 1;
       try {
         const redirectUri = `${url.origin}/api/auth/callback`;
-        const { id_token } = await exchangeCodeForTokens({
+        const bundle = await exchangeAuthCode({
           clientId,
           clientSecret,
           code,
           redirectUri,
           codeVerifier: row.code_verifier
         });
-        const user = decodeIdToken(id_token, clientId);
+        if (!bundle.id_token) {
+          return redirect(`${base}?auth=error&reason=${encodeURIComponent("no_id_token")}`);
+        }
+        const user = decodeIdToken(bundle.id_token, clientId);
+
+        if (forceConsent) {
+          const existing = await getSessionFromRequest(request, authSecret);
+          if (!existing || existing.sub !== user.sub) {
+            return redirect(`${base}?auth=error&reason=${encodeURIComponent("wrong_google_account")}`);
+          }
+          if (!bundle.refresh_token) {
+            return redirect(`${base}?auth=error&reason=${encodeURIComponent("no_refresh_reauthorize")}`);
+          }
+          await persistGoogleAccount({
+            env,
+            userId: user.sub,
+            refreshTokenPlain: bundle.refresh_token,
+            keepExistingRefreshIfNull: false,
+            accessTokenForBootstrap: bundle.access_token
+          });
+          const cookie = await buildSetSessionCookieHeader(authSecret, user, secure);
+          return redirect(`${base}?google=linked`, cookie);
+        }
+
         const cookie = await buildSetSessionCookieHeader(authSecret, user, secure);
+        if (bundle.refresh_token) {
+          try {
+            await persistGoogleAccount({
+              env,
+              userId: user.sub,
+              refreshTokenPlain: bundle.refresh_token,
+              keepExistingRefreshIfNull: false,
+              accessTokenForBootstrap: bundle.access_token
+            });
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "sheet_bootstrap_failed";
+            return redirect(`${base}?auth=error&reason=${encodeURIComponent(msg.slice(0, 120))}`, cookie);
+          }
+        }
         return redirect(base, cookie);
       } catch (e) {
         const msg = e instanceof Error ? e.message : "oauth_failed";
@@ -317,11 +396,11 @@ export default {
 
         const newTotal = totalReceipts + 1;
 
-        const sheetResult = await appendReceiptToSheet({
-          appsScriptUrl: env.GOOGLE_APPS_SCRIPT_URL,
-          appsScriptSecret: env.GOOGLE_APPS_SCRIPT_SECRET,
+        const sheetResult = await appendUserReceiptToGoogleSheet({
+          env,
+          userId: auth.sub,
           rowNumber: newTotal,
-          id,
+          receiptId: id,
           createdAtIso: createdAt,
           receipt,
           imagePublicUrl: imageUrl

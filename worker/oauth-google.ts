@@ -1,7 +1,6 @@
 import type { SessionUser } from "./session";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
-const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 function randomUrlSafeString(byteLength: number): string {
   const bytes = new Uint8Array(byteLength);
@@ -35,51 +34,35 @@ export async function createPkce(): Promise<{ verifier: string; challenge: strin
   return { verifier, challenge };
 }
 
+/** Scopes for Sign-In + Drive (per-file) + Sheets API (user-owned spreadsheet). */
+export const GOOGLE_OAUTH_SCOPES = [
+  "openid",
+  "email",
+  "profile",
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/spreadsheets"
+].join(" ");
+
 export function buildGoogleAuthorizeUrl(params: {
   clientId: string;
   redirectUri: string;
   state: string;
   codeChallenge: string;
+  /** If true, use prompt=consent to obtain a new refresh_token (Drive/Sheets link). */
+  forceConsent: boolean;
 }): string {
   const u = new URL(AUTH_URL);
   u.searchParams.set("client_id", params.clientId);
   u.searchParams.set("redirect_uri", params.redirectUri);
   u.searchParams.set("response_type", "code");
-  u.searchParams.set("scope", "openid email profile");
+  u.searchParams.set("scope", GOOGLE_OAUTH_SCOPES);
   u.searchParams.set("state", params.state);
   u.searchParams.set("code_challenge", params.codeChallenge);
   u.searchParams.set("code_challenge_method", "S256");
-  u.searchParams.set("prompt", "select_account");
+  u.searchParams.set("access_type", "offline");
+  u.searchParams.set("include_granted_scopes", "true");
+  u.searchParams.set("prompt", params.forceConsent ? "consent" : "select_account");
   return u.toString();
-}
-
-export async function exchangeCodeForTokens(params: {
-  clientId: string;
-  clientSecret: string;
-  code: string;
-  redirectUri: string;
-  codeVerifier: string;
-}): Promise<{ id_token: string }> {
-  const body = new URLSearchParams({
-    grant_type: "authorization_code",
-    client_id: params.clientId,
-    client_secret: params.clientSecret,
-    code: params.code,
-    redirect_uri: params.redirectUri,
-    code_verifier: params.codeVerifier
-  });
-  const res = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Token exchange failed: ${res.status} ${t.slice(0, 200)}`);
-  }
-  const json = (await res.json()) as { id_token?: string };
-  if (!json.id_token) throw new Error("No id_token in token response");
-  return { id_token: json.id_token };
 }
 
 export function decodeIdToken(idToken: string, expectedAud: string): SessionUser {

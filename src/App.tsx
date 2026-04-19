@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ParseResponse, ParsedReceipt, ReceiptItem, SubmitResponse } from "./types";
 
-type AuthMe = { user: { sub: string; email: string } | null; authConfigured: boolean };
+type AuthMe = {
+  user: { sub: string; email: string } | null;
+  authConfigured: boolean;
+  googleLinked?: boolean;
+  spreadsheetUrl?: string | null;
+};
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { credentials: "include", ...init });
@@ -93,6 +98,14 @@ export default function App() {
     if (me.user) fetchStats().then(setTotalReceipts).catch(() => setTotalReceipts(0));
     else setTotalReceipts(null);
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google") === "linked") {
+      window.history.replaceState({}, "", window.location.pathname);
+      void refreshAuth();
+    }
+  }, [refreshAuth]);
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -269,7 +282,7 @@ export default function App() {
         <div>
           <h1 style={{ margin: 0, fontSize: "1.35rem", letterSpacing: "-0.02em" }}>Scan & Parse</h1>
           <p className="muted" style={{ margin: "0.25rem 0 0" }}>
-            Tokyo trip receipts: snap, review, approve, sync to your sheet.
+            Tokyo trip receipts: snap, review, approve, sync to your Google Sheet in Drive.
           </p>
         </div>
         <div className="row" style={{ gap: "0.5rem", justifyContent: "flex-end" }}>
@@ -283,6 +296,11 @@ export default function App() {
               Auth off
             </span>
           ) : null}
+          {signedIn && auth?.googleLinked && auth.spreadsheetUrl ? (
+            <a className="btn btn-secondary" href={auth.spreadsheetUrl} target="_blank" rel="noreferrer">
+              Open sheet
+            </a>
+          ) : null}
           {signedIn ? (
             <button type="button" className="btn btn-secondary" onClick={() => void logout()}>
               Sign out
@@ -295,6 +313,19 @@ export default function App() {
       </header>
 
       <div className="stack">
+        {signedIn && auth && !auth.googleLinked ? (
+          <section className="card stack">
+            <strong>Connect Google Drive &amp; Sheets</strong>
+            <p className="muted" style={{ margin: 0 }}>
+              Approve access so we can create a <strong>Scan &amp; Parse</strong> spreadsheet in your Drive and append
+              each saved receipt. Google may ask you to confirm again so we can keep access while you travel.
+            </p>
+            <button type="button" className="btn" onClick={() => (window.location.href = "/api/auth/link-google")}>
+              Connect Google Drive &amp; Sheet
+            </button>
+          </section>
+        ) : null}
+
         <section className="card stack">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <strong>1. Capture</strong>
@@ -320,7 +351,12 @@ export default function App() {
           </div>
           {previewUrl ? <img className="preview-img" src={previewUrl} alt="Receipt preview" /> : null}
           <div className="row">
-            <button type="button" className="btn" onClick={parseImage} disabled={!file || busy || !signedIn}>
+            <button
+              type="button"
+              className="btn"
+              onClick={parseImage}
+              disabled={!file || busy || !signedIn || !auth?.googleLinked}
+            >
               {busy ? "Working…" : "Parse with AI"}
             </button>
           </div>
@@ -479,7 +515,12 @@ export default function App() {
             </label>
 
             <div className="row">
-              <button type="button" className="btn" onClick={submit} disabled={busy || !signedIn}>
+              <button
+                type="button"
+                className="btn"
+                onClick={submit}
+                disabled={busy || !signedIn || !auth?.googleLinked}
+              >
                 Approve & save
               </button>
             </div>
