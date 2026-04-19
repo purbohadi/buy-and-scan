@@ -51,3 +51,14 @@ export type SubmitBody = {
   imageOnly?: boolean;
   confirmDuplicate?: boolean;
 };
+
+export type StoredReceiptListItem = {
+  id: string;
+  createdAt: string;
+  receiptDatetime: string | null;
+  description: string | null;
+  vendor: string | null;
+  total: number;
+  currency: string;
+  imageUrl: string;
+};

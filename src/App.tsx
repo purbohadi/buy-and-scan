@@ -3,6 +3,7 @@ import { normalizeDiscountItemName } from "../shared/discount-label";
 import { sanitizeMoneyAmount, sanitizeReceiptMoney } from "../shared/money";
 import { sha256Hex } from "./hash";
 import { MoneyField } from "./MoneyField";
+import { ReceiptsList } from "./ReceiptsList";
 import { Spinner } from "./Spinner";
 import type { ParseResponse, ParsedReceipt, ReceiptItem, SubmitBody, SubmitResponse } from "./types";
 
@@ -66,6 +67,8 @@ function sumItems(items: ReceiptItem[], currency: string): number {
 
 type LoadingAction = "idle" | "parse" | "submit" | "upload";
 
+type MainTab = "scan" | "receipts";
+
 function fileToBytes(file: File): Promise<Uint8Array> {
   return file.arrayBuffer().then((ab) => new Uint8Array(ab));
 }
@@ -82,6 +85,8 @@ export default function App() {
   const [contentHash, setContentHash] = useState<string | null>(null);
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const [lastSubmit, setLastSubmit] = useState<SubmitResponse | null>(null);
+  const [mainTab, setMainTab] = useState<MainTab>("scan");
+  const [receiptsListNonce, setReceiptsListNonce] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -120,6 +125,7 @@ export default function App() {
     setError(null);
     setFile(null);
     setLoading("idle");
+    setMainTab("scan");
   }, []);
 
   const refreshAuth = useCallback(async () => {
@@ -229,6 +235,7 @@ export default function App() {
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       setLastSubmit(data);
       setTotalReceipts(data.totalReceipts);
+      setReceiptsListNonce((n) => n + 1);
       setFile(null);
       setParseResult(null);
       setReceipt(null);
@@ -322,6 +329,7 @@ export default function App() {
       if (!res.ok) throw new Error(data.error ?? "Submit failed");
       setLastSubmit(data);
       setTotalReceipts(data.totalReceipts);
+      setReceiptsListNonce((n) => n + 1);
       setFile(null);
       setParseResult(null);
       setReceipt(null);
@@ -426,6 +434,27 @@ export default function App() {
       </header>
 
       <div className="stack">
+        {signedIn ? (
+          <nav className="row" style={{ gap: "0.35rem", flexWrap: "wrap" }} aria-label="Main">
+            <button
+              type="button"
+              className={mainTab === "scan" ? "btn" : "btn btn-secondary"}
+              disabled={isBusy}
+              onClick={() => setMainTab("scan")}
+            >
+              Scan
+            </button>
+            <button
+              type="button"
+              className={mainTab === "receipts" ? "btn" : "btn btn-secondary"}
+              disabled={isBusy}
+              onClick={() => setMainTab("receipts")}
+            >
+              My receipts
+            </button>
+          </nav>
+        ) : null}
+
         {signedIn && auth && !auth.googleLinked ? (
           <section className="card stack">
             <strong>Connect Google Drive &amp; Sheets</strong>
@@ -444,6 +473,14 @@ export default function App() {
               Connect Google Drive &amp; Sheet
             </button>
           </section>
+        ) : null}
+
+        {mainTab === "scan" ? (
+          <>
+        {duplicateHint ? (
+          <div className="badge warn" role="status">
+            {duplicateHint}
+          </div>
         ) : null}
 
         <section className="card stack">
@@ -529,12 +566,6 @@ export default function App() {
             ) : null}
           </div>
         </section>
-
-        {duplicateHint ? (
-          <div className="badge warn" role="status">
-            {duplicateHint}
-          </div>
-        ) : null}
 
         {receipt ? (
           <section className="card stack">
@@ -717,6 +748,17 @@ export default function App() {
             </div>
           </section>
         ) : null}
+          </>
+        ) : (
+          <section className="card stack">
+            <strong>My receipts</strong>
+            <p className="muted" style={{ margin: 0 }}>
+              Saved receipts for your account (newest first). Date Time uses receipt date when set, otherwise saved
+              time.
+            </p>
+            <ReceiptsList signedIn={signedIn} refreshKey={receiptsListNonce} />
+          </section>
+        )}
 
         {error ? (
           <div className="badge warn" role="alert" aria-live="polite">
