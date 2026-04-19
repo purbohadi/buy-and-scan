@@ -10,18 +10,19 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 - PWA installable on your home screen; camera capture via file input (`capture="environment"`).
 - **Parse** uploads the image once; the Worker hashes the bytes (SHA-256) for duplicate detection (per user).
 - **Duplicate guard**: `409` on submit until “Confirm duplicate” if the same image was already stored for that user.
-- **Receipt AI (vision / “OCR”)**: fixed order — **OpenAI** (if `OPENAI_API_KEY` is set), else **OpenRouter** (if `OPENROUTER_API_KEY` is set), else **Cloudflare Workers AI** (Llama 3.2 Vision). Each step is tried on failure until one succeeds (`worker/receipt-parse-chain.ts`).
+- **Receipt AI (vision / “OCR”)**: fixed order — **OpenRouter** (if `OPENROUTER_API_KEY` is set), else **OpenAI** (if `OPENAI_API_KEY` is set), else **Cloudflare Workers AI** (Llama 3.2 Vision). Each step is tried on failure until one succeeds (`worker/receipt-parse-chain.ts`).
 
-## Receipt parsing: OpenAI → OpenRouter → Workers AI
+## Receipt parsing: OpenRouter → OpenAI → Workers AI
 
 | Step | When it runs |
 |------|----------------|
-| **OpenAI** | `OPENAI_API_KEY` is set; uses `POST …/v1/chat/completions` + `image_url` (`worker/receipt-openai.ts`). |
-| **OpenRouter** | OpenAI fails or is skipped (no key); `OPENROUTER_API_KEY` is set. |
+| **OpenRouter** | `OPENROUTER_API_KEY` is set; uses `POST …/v1/chat/completions` + `image_url` (`worker/receipt-openai.ts`). |
+| **OpenAI** | OpenRouter fails or is skipped (no key); `OPENAI_API_KEY` is set. |
 | **Workers AI** | Always last; `@cf/meta/llama-3.2-11b-vision-instruct` (`worker/receipt-ai.ts`). |
 
-**Secrets (optional but recommended for quality):** `OPENAI_API_KEY`, `OPENROUTER_API_KEY`.  
-**Optional vars:** `RECEIPT_VISION_MODEL`, `OPENAI_BASE_URL`, `OPENROUTER_BASE_URL`.
+**Secrets (optional but recommended):** `OPENROUTER_API_KEY` (primary external path), then `OPENAI_API_KEY` as fallback.  
+**Optional vars:** `RECEIPT_VISION_MODEL`, `OPENAI_BASE_URL`, `OPENROUTER_BASE_URL`.  
+`RECEIPT_VISION_MODEL`: bare ids like `gpt-4o-mini` are sent to OpenAI as-is and to OpenRouter as `openai/gpt-4o-mini`. Values with a `/` (e.g. `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`) are used as-is on OpenRouter; on OpenAI fallback, only `openai/…` is mapped to the suffix; other provider prefixes fall back to the default OpenAI model.
 
 No `RECEIPT_AI_PROVIDER` or fallback-chain env vars — order is fixed in code.
 

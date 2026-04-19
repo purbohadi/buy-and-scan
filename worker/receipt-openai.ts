@@ -6,6 +6,20 @@ const DEFAULT_OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";
 
+function resolveVisionModel(mode: ExternalProvider, configured: string | undefined): string {
+  const raw = configured?.trim();
+  if (!raw) {
+    return mode === "openai" ? DEFAULT_OPENAI_MODEL : DEFAULT_OPENROUTER_MODEL;
+  }
+  if (mode === "openrouter") {
+    if (raw.includes("/")) return raw;
+    return `openai/${raw}`;
+  }
+  if (raw.startsWith("openai/")) return raw.slice("openai/".length);
+  if (!raw.includes("/")) return raw;
+  return DEFAULT_OPENAI_MODEL;
+}
+
 export type ExternalProvider = "openai" | "openrouter";
 
 export type ExternalAiEnv = {
@@ -30,12 +44,12 @@ export async function parseReceiptWithExternalProvider(
   if (mode === "openai") {
     apiKey = env.OPENAI_API_KEY ?? "";
     baseUrl = (env.OPENAI_BASE_URL ?? DEFAULT_OPENAI_BASE).replace(/\/$/, "");
-    model = env.RECEIPT_VISION_MODEL ?? DEFAULT_OPENAI_MODEL;
+    model = resolveVisionModel("openai", env.RECEIPT_VISION_MODEL);
     if (!apiKey) throw new Error("OPENAI_API_KEY is required for OpenAI vision");
   } else {
     apiKey = env.OPENROUTER_API_KEY ?? "";
     baseUrl = (env.OPENROUTER_BASE_URL ?? DEFAULT_OPENROUTER_BASE).replace(/\/$/, "");
-    model = env.RECEIPT_VISION_MODEL ?? DEFAULT_OPENROUTER_MODEL;
+    model = resolveVisionModel("openrouter", env.RECEIPT_VISION_MODEL);
     if (!apiKey) throw new Error("OPENROUTER_API_KEY is required for OpenRouter vision");
   }
 

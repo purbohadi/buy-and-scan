@@ -12,11 +12,11 @@ function hasKey(env: ExternalAiEnv, step: Step): boolean {
   return Boolean(env.OPENROUTER_API_KEY?.trim());
 }
 
-/** Fixed order: OpenAI (if key) → OpenRouter (if key) → Cloudflare Workers AI. */
+/** Fixed order: OpenRouter (if key) → OpenAI (if key) → Cloudflare Workers AI. */
 function buildChain(env: ParseChainEnv): Step[] {
   const chain: Step[] = [];
-  if (hasKey(env, "openai")) chain.push("openai");
   if (hasKey(env, "openrouter")) chain.push("openrouter");
+  if (hasKey(env, "openai")) chain.push("openai");
   chain.push("workers");
   return chain;
 }
