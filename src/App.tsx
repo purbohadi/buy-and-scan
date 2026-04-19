@@ -63,7 +63,13 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("auth") === "error") {
-      const reason = params.get("reason") ?? "unknown";
+      const raw = params.get("reason") ?? "unknown";
+      let reason = raw;
+      try {
+        reason = decodeURIComponent(raw);
+      } catch {
+        /* keep raw */
+      }
       setError(`Sign-in failed: ${reason}`);
       window.history.replaceState({}, "", window.location.pathname);
     }

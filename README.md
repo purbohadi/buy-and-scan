@@ -33,6 +33,16 @@ npx wrangler secret put OPENROUTER_API_KEY
 
 Set `RECEIPT_AI_PROVIDER` via `wrangler.jsonc` `vars` or the dashboard for production.
 
+## Production login (`…workers.dev`) fails
+
+Checklist:
+
+1. **Worker secrets** for the **same** environment you deployed (`production` → `wrangler secret put … --env production`, or dashboard **Variables and Secrets** on `scan-and-parse-production`): **`AUTH_SESSION_SECRET`**, **`GOOGLE_CLIENT_ID`**, **`GOOGLE_CLIENT_SECRET`**. If any are missing, Google redirect or token exchange will fail.
+2. **Google Cloud Console** → OAuth client → **Authorized redirect URIs** must include exactly:  
+   `https://scan-and-parse-production.pu-cf.workers.dev/api/auth/callback`  
+   (use your real host if different). **Authorized JavaScript origins**: `https://scan-and-parse-production.pu-cf.workers.dev` (no path, no trailing `/`).
+3. After sign-in, the app shows **`Sign-in failed: …`** with a `reason` query param — use that text (or browser devtools → Network → `/api/auth/callback` redirect) to debug.
+
 ## Google Cloud setup
 
 1. Create an OAuth **Web application** client.

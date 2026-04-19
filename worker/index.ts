@@ -152,7 +152,14 @@ export default {
       const clientId = env.GOOGLE_CLIENT_ID;
       const secret = env.AUTH_SESSION_SECRET;
       if (!clientId || !secret) {
-        return json({ error: "Google OAuth is not configured on the server" }, { status: 503 });
+        return redirect(
+          `${url.origin}/?auth=error&reason=${encodeURIComponent("missing_server_secrets")}`
+        );
+      }
+      if (!env.GOOGLE_CLIENT_SECRET) {
+        return redirect(
+          `${url.origin}/?auth=error&reason=${encodeURIComponent("missing_google_client_secret")}`
+        );
       }
       await pruneOAuthStates(env.DB);
       const state = crypto.randomUUID();
@@ -176,7 +183,14 @@ export default {
       const clientId = env.GOOGLE_CLIENT_ID;
       const secret = env.AUTH_SESSION_SECRET;
       if (!clientId || !secret) {
-        return json({ error: "Google OAuth is not configured on the server" }, { status: 503 });
+        return redirect(
+          `${url.origin}/?auth=error&reason=${encodeURIComponent("missing_server_secrets")}`
+        );
+      }
+      if (!env.GOOGLE_CLIENT_SECRET) {
+        return redirect(
+          `${url.origin}/?auth=error&reason=${encodeURIComponent("missing_google_client_secret")}`
+        );
       }
       const sessionUser = await getSessionFromRequest(request, secret);
       if (!sessionUser) {
@@ -207,8 +221,12 @@ export default {
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
       const err = url.searchParams.get("error");
+      const errDesc = url.searchParams.get("error_description");
       const base = `${url.origin}/`;
-      if (err) return redirect(`${base}?auth=error&reason=${encodeURIComponent(err)}`);
+      if (err) {
+        const detail = errDesc ? `${err}: ${errDesc}` : err;
+        return redirect(`${base}?auth=error&reason=${encodeURIComponent(detail.slice(0, 500))}`);
+      }
       if (!code || !state || !clientId || !clientSecret || !authSecret) {
         return redirect(`${base}?auth=error&reason=${encodeURIComponent("missing_params")}`);
       }
