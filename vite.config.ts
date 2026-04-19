@@ -26,7 +26,9 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"]
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
+        // Do not serve index.html for /api/* navigations (e.g. OAuth redirect to Google).
+        navigateFallbackDenylist: [/^\/api\//]
       }
     })
   ],

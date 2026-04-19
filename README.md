@@ -132,6 +132,8 @@ Same **`.env`** file; flip **`ENV_MODE`** when switching deploy target. Both Wor
 
 **Google OAuth:** register redirect + JS origins for **both** workers.dev URLs (dev and production).
 
+**PWA / “Continue with Google” does nothing:** the service worker used to intercept `/api/auth/login` and return `index.html`. The build now excludes `/api/*` from the SPA fallback. If an old SW is cached, in Chrome: **Application → Service Workers → Unregister**, then hard-refresh, or reinstall the PWA after redeploy.
+
 Quick OpenRouter smoke test:
 
 ```bash

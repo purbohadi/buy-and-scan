@@ -274,9 +274,9 @@ export default function App() {
               {error}
             </div>
           ) : null}
-          <button type="button" className="btn" onClick={() => (window.location.href = "/api/auth/login")}>
+          <a className="btn" href="/api/auth/login" style={{ textDecoration: "none" }}>
             Continue with Google
-          </button>
+          </a>
         </div>
       </div>
     );
