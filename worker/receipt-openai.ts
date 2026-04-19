@@ -1,4 +1,9 @@
-import { bytesToBase64, parseReceiptModelText, RECEIPT_SYSTEM_PROMPT } from "./receipt-shared";
+import {
+  bytesToBase64,
+  parseReceiptModelText,
+  RECEIPT_SYSTEM_PROMPT,
+  RECEIPT_USER_JSON_ONLY
+} from "./receipt-shared";
 import type { ParsedReceipt } from "./types";
 
 const DEFAULT_OPENAI_BASE = "https://api.openai.com/v1";
@@ -54,23 +59,17 @@ export async function parseReceiptWithExternalProvider(
   }
 
   const dataUrl = `data:${mime};base64,${bytesToBase64(imageBytes)}`;
-  const userInstruction =
-    "Extract structured receipt data as JSON only. If multiple languages, prefer amounts from printed totals.";
 
-  const body = {
-    model,
-    temperature: 0.2,
-    messages: [
-      { role: "system", content: RECEIPT_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: userInstruction },
-          { type: "image_url", image_url: { url: dataUrl } }
-        ]
-      }
-    ]
-  };
+  const messages = [
+    { role: "system", content: RECEIPT_SYSTEM_PROMPT },
+    {
+      role: "user",
+      content: [
+        { type: "text", text: RECEIPT_USER_JSON_ONLY },
+        { type: "image_url", image_url: { url: dataUrl } }
+      ]
+    }
+  ];
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
@@ -81,15 +80,30 @@ export async function parseReceiptWithExternalProvider(
     headers["X-Title"] = "Scan & Parse";
   }
 
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body)
-  });
+  const post = async (withJsonMode: boolean) =>
+    fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        ...(withJsonMode ? { response_format: { type: "json_object" } } : {}),
+        messages
+      })
+    });
 
+  let res = await post(true);
   if (!res.ok) {
     const t = await res.text();
-    throw new Error(`Vision API error ${res.status}: ${t.slice(0, 300)}`);
+    if (/response_format|json_object|unsupported|invalid_request/i.test(t)) {
+      res = await post(false);
+    } else {
+      throw new Error(`Vision API error ${res.status}: ${t.slice(0, 300)}`);
+    }
+  }
+  if (!res.ok) {
+    const t2 = await res.text();
+    throw new Error(`Vision API error ${res.status}: ${t2.slice(0, 300)}`);
   }
 
   const json = (await res.json()) as {

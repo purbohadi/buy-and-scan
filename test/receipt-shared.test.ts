@@ -5,7 +5,9 @@ import {
   normalizeParsed,
   parseMoneyToNumber,
   parseReceiptFromMarkdownStyle,
-  parseReceiptModelText
+  parseReceiptModelText,
+  repairJsonText,
+  tryParseReceiptJsonObject
 } from "../worker/receipt-shared";
 import type { ParsedReceipt } from "../worker/types";
 
@@ -50,6 +52,14 @@ describe("parseReceiptFromMarkdownStyle", () => {
     expect(r!.currency).toBe("IDR");
     expect(r!.items.length).toBeGreaterThanOrEqual(1);
     expect(r!.items.some((i) => /Meja Belajar/i.test(i.name))).toBe(true);
+  });
+});
+
+describe("repairJsonText / tryParseReceiptJsonObject", () => {
+  it("strips trailing commas before parse", () => {
+    const raw = '{"a":1,"b":2,}';
+    const repaired = repairJsonText(raw);
+    expect(tryParseReceiptJsonObject(repaired)).toEqual({ a: 1, b: 2 });
   });
 });
 

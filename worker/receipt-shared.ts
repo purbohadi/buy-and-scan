@@ -50,6 +50,22 @@ export function extractJsonObject(text: string): string | null {
   return candidate.slice(start, end + 1);
 }
 
+/** RFC 8259-ish fixes before JSON.parse (trailing commas, BOM). */
+export function repairJsonText(s: string): string {
+  let t = s.replace(/^\uFEFF/, "").trim();
+  t = t.replace(/,\s*([}\]])/g, "$1");
+  return t;
+}
+
+export function tryParseReceiptJsonObject(jsonStr: string): Record<string, unknown> | null {
+  const repaired = repairJsonText(jsonStr);
+  try {
+    return JSON.parse(repaired) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeParsed(raw: Record<string, unknown>): ParsedReceipt {
   const currency = String(raw.currency ?? "JPY").toUpperCase().slice(0, 8);
   const itemsRaw = Array.isArray(raw.items) ? raw.items : [];
@@ -94,32 +110,46 @@ export function normalizeParsed(raw: Record<string, unknown>): ParsedReceipt {
   };
 }
 
+export const RECEIPT_JSON_EXAMPLE = `{"vendor":"ACME Store","receiptDatetime":"2025-10-04T11:26:00+07:00","currency":"IDR","total":124290,"category":"shopping","description":"Office supplies","items":[{"name":"Pen","quantity":1,"unitPrice":5000,"lineTotal":5000}],"location":{"label":"Jl. Example No.1"}}`;
+
 export const RECEIPT_SYSTEM_PROMPT = `You are a receipt OCR assistant. Read the receipt image.
 
-CRITICAL OUTPUT RULES:
-- Reply with ONE JSON object only. No markdown, no **bold**, no headings, no bullet lists, no prose before or after the JSON.
-- The first character of your reply must be "{" and the last must be "}".
+OUTPUT MUST BE VALID RFC 8259 JSON ONLY:
+- Output exactly one JSON object. No markdown, no code fences, no **bold**, no bullet lists, no text before { or after }.
+- Use double quotes for all keys and string values. No trailing commas. Use null for unknown strings; use [] for empty items.
+- Numbers must be JSON numbers (no thousands separators, no currency symbols inside numbers). Example total: 124290 not "124,290".
+- "currency" must be a 3-letter ISO code (e.g. IDR, JPY, USD).
+- "items" is an array of objects, each with "name" (string), "quantity" (integer), "unitPrice" (number), "lineTotal" (number).
 
-JSON shape:
-{
-  "vendor": string or null,
-  "receiptDatetime": string in ISO-8601 if you can infer date/time else null,
-  "currency": string ISO currency code like JPY, USD, IDR,
-  "total": number (tax-included total if visible),
-  "category": short English category like food, transport, shopping, lodging, entertainment, other,
-  "description": one-line English summary of the purchase,
-  "items": [ { "name": string, "quantity": number, "unitPrice": number, "lineTotal": number } ],
-  "location": { "label": string or null } or null
-}
-Use best effort for Japanese and Indonesian receipts. If unsure about a field, use null or empty array.`;
+Valid minimal shape (example only — replace with real values from the image):
+${RECEIPT_JSON_EXAMPLE}
+
+Use best effort for Japanese and Indonesian receipts.`;
+
+export const RECEIPT_USER_JSON_ONLY = `Return ONLY the JSON object for this receipt image. Start with { and end with }. Every string in JSON must use double quotes. No trailing commas.`;
 
 /** @deprecated use parseMoneyString from shared/money */
 export const parseMoneyToNumber = parseMoneyString;
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Workers AI often emits `**Vendor:** Toko …` (value NOT wrapped in `**`).
+ * Some models use `**Vendor:** **Toko …**` — support both.
+ */
 function mdField(text: string, label: string): string | null {
-  const re = new RegExp(`\\*\\*\\s*${label}\\s*:\\s*\\*\\*\\s*([^\\n]+)`, "i");
-  const m = text.match(re);
-  return m ? m[1].trim() : null;
+  const esc = escapeRegExp(label);
+  const wrapped = new RegExp(
+    `\\*\\*\\s*${esc}\\s*:\\s*\\*\\*\\s*\\*\\*([^*]+)\\*\\*`,
+    "i"
+  );
+  const w = text.match(wrapped);
+  if (w) return w[1].trim();
+  const plain = new RegExp(`\\*\\*\\s*${esc}\\s*:\\s*\\*\\*\\s*(.+?)(?=\\s*\\*\\*|$)`, "is");
+  const p = text.match(plain);
+  return p ? p[1].trim() : null;
 }
 
 /**
@@ -189,12 +219,8 @@ export function parseReceiptFromMarkdownStyle(text: string): ParsedReceipt | nul
 export function parseReceiptModelText(text: string): ParsedReceipt {
   const jsonStr = extractJsonObject(text);
   if (jsonStr) {
-    try {
-      const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-      return sanitizeReceiptMoney(normalizeParsed(parsed));
-    } catch {
-      /* fall through */
-    }
+    const parsed = tryParseReceiptJsonObject(jsonStr);
+    if (parsed) return sanitizeReceiptMoney(normalizeParsed(parsed));
   }
   const md = parseReceiptFromMarkdownStyle(text);
   if (md) return sanitizeReceiptMoney(md);

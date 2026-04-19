@@ -28,6 +28,8 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 
 No `RECEIPT_AI_PROVIDER` or fallback-chain env vars — order is fixed in code.
 
+**JSON output:** The Worker asks vision models for **`response_format: json_object`** where the API supports it (OpenAI-compatible + Workers AI when available), uses stricter prompts with a **minimal valid JSON example**, and repairs common issues (e.g. **trailing commas**) before `JSON.parse`. Markdown-style replies are still parsed as a fallback.
+
 **Tradeoffs:** OpenAI/OpenRouter send the image to a third-party API; Workers AI stays on Cloudflare (Meta “agree” handled in code).
 
 ## Production login (`…workers.dev`) fails

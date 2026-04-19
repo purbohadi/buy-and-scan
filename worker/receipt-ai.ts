@@ -1,4 +1,9 @@
-import { bytesToBase64, parseReceiptModelText, RECEIPT_SYSTEM_PROMPT } from "./receipt-shared";
+import {
+  bytesToBase64,
+  parseReceiptModelText,
+  RECEIPT_SYSTEM_PROMPT,
+  RECEIPT_USER_JSON_ONLY
+} from "./receipt-shared";
 import type { ParsedReceipt } from "./types";
 
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
@@ -16,20 +21,32 @@ async function ensureLlamaVisionLicense(ai: Ai): Promise<void> {
   await ai.run(VISION_MODEL, { prompt: "agree" });
 }
 
-function visionPayload(dataUrl: string) {
+function visionPayloadBase(dataUrl: string) {
   return {
     messages: [
       { role: "system", content: RECEIPT_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content:
-          "Output one JSON object only (starts with {). Include every line item with quantity, unitPrice, lineTotal in numbers. Prefer printed totals. Indonesian Rupiah: currency IDR, total as number without separators."
-      }
+      { role: "user", content: RECEIPT_USER_JSON_ONLY }
     ],
     image: dataUrl,
     temperature: 0.1,
     max_tokens: 2048
   };
+}
+
+async function runVision(ai: Ai, dataUrl: string): Promise<unknown> {
+  const base = visionPayloadBase(dataUrl);
+  try {
+    return await ai.run(VISION_MODEL, {
+      ...base,
+      response_format: { type: "json_object" }
+    } as typeof base & { response_format: { type: "json_object" } });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/response_format|json_object|unknown|invalid|not support/i.test(msg)) {
+      return await ai.run(VISION_MODEL, base);
+    }
+    throw e;
+  }
 }
 
 function workersAiOutputToText(res: unknown): string {
@@ -60,25 +77,22 @@ export async function parseReceiptWithWorkersAi(
 ): Promise<ParsedReceipt> {
   const dataUrl = `data:${mime};base64,${bytesToBase64(imageBytes)}`;
 
-  const runVision = async () =>
-    (await ai.run(VISION_MODEL, visionPayload(dataUrl))) as { response?: string };
-
   let res: { response?: string } | string;
   try {
-    res = await runVision();
+    res = (await runVision(ai, dataUrl)) as { response?: string } | string;
   } catch (e) {
     // Workers AI returns HTTP 403 / internal 5016 as a thrown error, not model text.
     const msg = e instanceof Error ? e.message : String(e);
     if (!isLlamaVisionLicenseGate(msg)) throw e;
     await ensureLlamaVisionLicense(ai);
-    res = await runVision();
+    res = (await runVision(ai, dataUrl)) as { response?: string } | string;
   }
 
   let text = workersAiOutputToText(res);
 
   if (isLlamaVisionLicenseGate(text)) {
     await ensureLlamaVisionLicense(ai);
-    res = await runVision();
+    res = (await runVision(ai, dataUrl)) as { response?: string } | string;
     text = workersAiOutputToText(res);
     if (isLlamaVisionLicenseGate(text)) {
       throw new Error("Workers AI still requires Meta license acceptance after agree; check Cloudflare Workers AI.");
@@ -88,7 +102,7 @@ export async function parseReceiptWithWorkersAi(
   try {
     return parseReceiptModelText(text);
   } catch (first) {
-    res = await runVision();
+    res = (await runVision(ai, dataUrl)) as { response?: string } | string;
     text = workersAiOutputToText(res);
     try {
       return parseReceiptModelText(text);
