@@ -53,6 +53,16 @@ describe("parseReceiptFromMarkdownStyle", () => {
     expect(r!.items.length).toBeGreaterThanOrEqual(1);
     expect(r!.items.some((i) => /Meja Belajar/i.test(i.name))).toBe(true);
   });
+
+  it("parses bullet + bold label format and plain numeric total", () => {
+    const text = `**Receipt Details** * **Vendor**: Toko Gading Murni Putra * **Receipt Date and Time**: 04 Oct 2025, 11.26 * **Currency**: IDR * **Total**: 124290 * **Category**: Shopping * **Description**: Office supplies * **Location**: Jl. Raya Kendangsari Industri No. 10 - Surabaya * **Items**`;
+    const r = parseReceiptFromMarkdownStyle(text);
+    expect(r).not.toBeNull();
+    expect(r!.vendor).toContain("Gading Murni");
+    expect(r!.total).toBe(124290);
+    expect(r!.description).toContain("Office supplies");
+    expect(r!.location?.label).toContain("Surabaya");
+  });
 });
 
 describe("repairJsonText / tryParseReceiptJsonObject", () => {

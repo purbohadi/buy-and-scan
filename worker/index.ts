@@ -32,7 +32,7 @@ export interface Env {
   OPENROUTER_API_KEY?: string;
   /** Google AI Studio API key (vision); https://aistudio.google.com/apikey */
   GEMINI_API_KEY?: string;
-  /** Optional; default gemini-2.0-flash */
+  /** Optional; default gemini-2.5-flash (see worker/receipt-gemini.ts fallbacks) */
   GOOGLE_GEMINI_MODEL?: string;
   OPENAI_BASE_URL?: string;
   OPENROUTER_BASE_URL?: string;
