@@ -41,7 +41,9 @@ export async function parseReceiptWithFallback(
         draft = await parseReceiptWithExternalProvider(env, imageBytes, mime, step as ExternalProvider);
       }
       if (isTriviallyEmptyReceipt(draft)) {
-        throw new Error("Model returned an empty receipt (no items or totals); image may be unreadable or wrong format.");
+        throw new Error(
+          "Model returned an empty receipt (no items or totals). Use JPEG/PNG (not HEIC), full-resolution photo, or configure OPENROUTER_API_KEY / OPENAI_API_KEY on the Worker for better vision."
+        );
       }
       return draft;
     } catch (e) {
