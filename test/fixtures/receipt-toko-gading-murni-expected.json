@@ -1,0 +1,43 @@
+{
+  "vendor": "Toko Gading Murni Putra",
+  "receiptDatetime": "2025-10-04T11:26:00+07:00",
+  "currency": "IDR",
+  "total": 124290,
+  "category": "shopping",
+  "description": "Stationery and furniture purchase at Toko Gading Murni Putra, Surabaya",
+  "items": [
+    {
+      "name": "MEJA BELAJAR KOTAK SOFT KN",
+      "quantity": 2,
+      "unitPrice": 44000,
+      "lineTotal": 88000
+    },
+    {
+      "name": "V-TEC MECHANICAL SHARPENER MS 1600",
+      "quantity": 1,
+      "unitPrice": 26000,
+      "lineTotal": 26000
+    },
+    {
+      "name": "SOFUN CLICK GEL PEN ZF3223",
+      "quantity": 1,
+      "unitPrice": 9100,
+      "lineTotal": 9100
+    },
+    {
+      "name": "O&Q PEN TYPE M-9079/39700051",
+      "quantity": 1,
+      "unitPrice": 6000,
+      "lineTotal": 6000
+    },
+    {
+      "name": "SIDU BK.GAMBAR A4 20X30CM",
+      "quantity": 2,
+      "unitPrice": 4500,
+      "lineTotal": 9000
+    }
+  ],
+  "location": {
+    "label": "Jl. Raya Kendangsari Industri No. 10 - Surabaya"
+  }
+}
