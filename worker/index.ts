@@ -410,6 +410,22 @@ export default {
           return json({ error: "contentHash does not match image bytes" }, { status: 400 });
         }
 
+        let receipt = sanitizeReceiptMoney(body.receipt as ParsedReceipt);
+        if (body.imageOnly) {
+          receipt = sanitizeReceiptMoney({
+            currency: receipt.currency?.trim() ? String(receipt.currency).toUpperCase().slice(0, 8) : "JPY",
+            total: 0,
+            items: [],
+            description:
+              receipt.description?.trim() ||
+              "Receipt image saved without AI parse (parse failed or skipped). Fill details in the app next time if needed.",
+            category: receipt.category?.trim() || "other",
+            vendor: receipt.vendor?.trim() || undefined,
+            receiptDatetime: receipt.receiptDatetime?.trim() || undefined,
+            location: receipt.location
+          });
+        }
+
         const { duplicateCount, totalReceipts } = await duplicateStats(env.DB, auth.sub, hash);
         if (duplicateCount > 0 && !body.confirmDuplicate) {
           const res: SubmitResponse = {
@@ -431,7 +447,6 @@ export default {
 
         const imageUrl = publicImageUrl(request, key);
         const createdAt = new Date().toISOString();
-        const receipt = sanitizeReceiptMoney(body.receipt as ParsedReceipt);
 
         await env.DB
           .prepare(

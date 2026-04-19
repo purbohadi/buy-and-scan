@@ -42,3 +42,12 @@ export type SubmitResponse = {
   sheetsError?: string;
   error?: string;
 };
+
+export type SubmitBody = {
+  contentHash: string;
+  imageMime: string;
+  imageBase64: string;
+  receipt: ParsedReceipt;
+  imageOnly?: boolean;
+  confirmDuplicate?: boolean;
+};

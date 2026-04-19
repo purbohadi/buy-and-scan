@@ -35,6 +35,8 @@ export type SubmitBody = {
   imageMime: string;
   imageBase64: string;
   receipt: ParsedReceipt;
+  /** When true, server stores minimal receipt row (image only); ignores rich parsed fields from client except optional note. */
+  imageOnly?: boolean;
   confirmDuplicate?: boolean;
 };
 

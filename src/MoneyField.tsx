@@ -9,9 +9,10 @@ type Props = {
   onCommit: (n: number) => void;
   className?: string;
   compact?: boolean;
+  disabled?: boolean;
 };
 
-export function MoneyField({ id, label, value, currency, onCommit, className = "", compact }: Props) {
+export function MoneyField({ id, label, value, currency, onCommit, className = "", compact, disabled }: Props) {
   const c = String(currency ?? "JPY").toUpperCase().slice(0, 8);
   const [text, setText] = useState(() => formatMoneyDisplay(value, c));
 
@@ -41,7 +42,8 @@ export function MoneyField({ id, label, value, currency, onCommit, className = "
           type="text"
           inputMode="decimal"
           autoComplete="off"
-          className="min-w-0 flex-1 rounded-lg border border-slate-500/40 bg-slate-950/60 px-2 py-1.5 font-mono text-sm text-slate-100 tabular-nums outline-none ring-sky-400/40 focus:ring-2"
+          disabled={disabled}
+          className="min-w-0 flex-1 rounded-lg border border-slate-500/40 bg-slate-950/60 px-2 py-1.5 font-mono text-sm text-slate-100 tabular-nums outline-none ring-sky-400/40 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onBlur={commit}
