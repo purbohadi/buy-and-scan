@@ -151,6 +151,24 @@ Remove or avoid relying on **`*.workers.dev`** URLs for verification if Google r
 
 You do **not** have to move DNS away from Cloudflare. You only need a **hostname** on a zone you control, proxied to the Worker, verified in Search Console, and used consistently in OAuth.
 
+## OAuth verification: “How will the scopes be used?” (Sheets)
+
+Paste into **Google Cloud Console → OAuth consent screen** when Google asks how **`https://www.googleapis.com/auth/spreadsheets`** is used (matches this repo’s Worker + `google-api.ts`):
+
+> This scope is used only on the server (Cloudflare Worker) after the user signs in and completes Connect Google Drive & Sheets.
+>
+> **Create one spreadsheet** for that user the first time they link Google — via `spreadsheets.create` (REST: `POST https://sheets.googleapis.com/v4/spreadsheets`). The file is a normal Google Sheet stored in their Google account.
+>
+> **Write a single header row** on a tab named **Receipts** so columns are labeled (e.g. id, timestamp, totals, link to receipt image).
+>
+> **Append one row per receipt** the user has reviewed and approved in the app — via `spreadsheets.values.append`, so each saved receipt appears as a new line in that spreadsheet.
+>
+> We do not enumerate, list, or bulk-read the user’s other spreadsheets. We do not use this scope to access arbitrary sheets the user never created through our app. The only spreadsheet IDs we call are for the spreadsheet **created for that user by our backend** (we store that id server-side after creation).
+>
+> The consent screen wording (“all spreadsheets”) is Google’s fixed description for this OAuth scope; our implementation is limited to **creating and updating the user’s dedicated receipt log spreadsheet** as described above.
+
+**`drive.file`** (if asked separately): used server-side only so the app can create and update **files this application creates** in the user’s Drive (the receipt spreadsheet), without full Drive access.
+
 ## Google Cloud setup
 
 1. Create an OAuth **Web application** client.
