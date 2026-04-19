@@ -71,13 +71,15 @@ function sheetMoneyString(n: number, currency: string): string {
   return String(v);
 }
 
+/** One item per line with a leading dash (reads as bullet list in Sheets when wrap is on). */
 function itemsDetailBullets(receipt: ParsedReceipt): string {
   const c = receipt.currency;
-  const lines = receipt.items.map(
-    (it) =>
-      `• ${it.name} ×${it.quantity} @ ${sheetMoneyString(it.unitPrice, c)} = ${sheetMoneyString(it.lineTotal, c)}`
-  );
-  return lines.join("\n");
+  return receipt.items
+    .map(
+      (it) =>
+        `- ${it.name} x${it.quantity} @ ${sheetMoneyString(it.unitPrice, c)} = ${sheetMoneyString(it.lineTotal, c)}`
+    )
+    .join("\n");
 }
 
 /** Sheet-friendly date/time (no raw ISO T/Z in cell). */
@@ -132,7 +134,7 @@ const HEADER_ROW = [
   "items detail",
   "total price",
   "currency",
-  "image receipt url"
+  "Receipt"
 ];
 
 export async function ensureReceiptSpreadsheet(accessToken: string): Promise<{ id: string; url: string }> {
