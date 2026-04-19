@@ -1,7 +1,6 @@
 /**
  * Smoke test OpenRouter vision + JSON extraction (same shape as worker/receipt-openai.ts).
- * Run: node --env-file=.dev.vars scripts/test-openrouter-receipt.mjs
- * Or: RECEIPT_AI_PROVIDER=openrouter OPENROUTER_API_KEY=... node scripts/test-openrouter-receipt.mjs
+ * Run: node --env-file=.env scripts/test-openrouter-receipt.mjs
  */
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";

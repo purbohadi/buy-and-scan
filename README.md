@@ -31,7 +31,7 @@ npx wrangler secret put OPENAI_API_KEY
 npx wrangler secret put OPENROUTER_API_KEY
 ```
 
-Set `RECEIPT_AI_PROVIDER` via `wrangler.toml` / dashboard vars or (local) `.dev.vars`.
+Set `RECEIPT_AI_PROVIDER` via `wrangler.jsonc` `vars` or the dashboard for production.
 
 ## Google Cloud setup
 
@@ -43,6 +43,15 @@ Set `RECEIPT_AI_PROVIDER` via `wrangler.toml` / dashboard vars or (local) `.dev.
    and for local Wrangler: `http://127.0.0.1:8787/api/auth/callback`
 5. **Authorized JavaScript origins** (origin only, no path, no trailing `/`):  
    `https://<your-worker-host>`, `http://localhost:5173`, `http://127.0.0.1:5173`, etc.
+
+## Environment file (`.env`)
+
+Use a **single** **`.env`** at the repo root (gitignored). Copy **`.env.example`** → **`.env`** and fill in values.
+
+- **`CLOUDFLARE_ACCOUNT_ID`** / **`CLOUDFLARE_API_TOKEN`** — for Wrangler CLI (`whoami`, `deploy`, D1 commands). `account_id` is also in `wrangler.jsonc`; the env var is optional if you rely on that file alone.
+- **Google / receipt keys** — same `.env`; Wrangler dev reads them via a generated **`.dev.vars`** (see below).
+
+**Never commit `.env`.**
 
 ## Local development
 
@@ -59,33 +68,29 @@ Set `RECEIPT_AI_PROVIDER` via `wrangler.toml` / dashboard vars or (local) `.dev.
 3. Apply migrations:
 
    ```bash
-   npx wrangler d1 migrations apply scan-and-parse-db --local
-   npx wrangler d1 migrations apply scan-and-parse-db --remote
+   dotenv -e .env -- wrangler d1 migrations apply scan-and-parse-db --local
+   dotenv -e .env -- wrangler d1 migrations apply scan-and-parse-db --remote
    ```
 
-4. Copy `.dev.vars.example` → `.dev.vars` and set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SESSION_SECRET`.
+4. Copy `.env.example` → `.env` and set at least `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SESSION_SECRET`, and optionally `CLOUDFLARE_API_TOKEN` for CLI.
 
-5. Run the API and the Vite dev server (Vite proxies `/api` to Wrangler on port 8787):
-
-   ```bash
-   npm run dev
-   ```
+5. **`npm run dev`** runs **`predev`**: it syncs **`.env` → `.dev.vars`** for Wrangler, **excluding `CLOUDFLARE_*`** so your API token is not injected into the Worker runtime. Then Vite + `wrangler dev` start.
 
    Open http://localhost:5173
 
-## Cloudflare CLI (optional)
-
-`wrangler.jsonc` includes **`account_id`** for this project. For **headless** or **CI** auth, set an API token (never commit it):
-
-1. Copy `.env.cloudflare.example` → **`.env.cloudflare`** (gitignored).
-2. Set `CLOUDFLARE_API_TOKEN` (and optionally `CLOUDFLARE_ACCOUNT_ID` if not using `account_id` in wrangler).
+## Cloudflare CLI
 
 ```bash
-npx wrangler whoami --env-file .env.cloudflare
-npx wrangler deploy --env-file .env.cloudflare
+dotenv -e .env -- wrangler whoami
 ```
 
-Rotate the token if it was ever pasted into a chat or committed by mistake.
+Deploy (loads `.env` for the Wrangler process only):
+
+```bash
+npm run deploy
+```
+
+Rotate `CLOUDFLARE_API_TOKEN` if it was ever exposed.
 
 ## Deploy
 
@@ -93,7 +98,7 @@ Rotate the token if it was ever pasted into a chat or committed by mistake.
 npm run deploy
 ```
 
-Secrets:
+Worker secrets (production):
 
 ```bash
 npx wrangler secret put AUTH_SESSION_SECRET
@@ -104,14 +109,11 @@ npx wrangler secret put GOOGLE_CLIENT_SECRET
 # npx wrangler secret put OPENROUTER_API_KEY
 ```
 
-Set non-secret `RECEIPT_AI_PROVIDER` in the dashboard or `wrangler.jsonc` `vars` when using OpenAI/OpenRouter keys.
-
-Quick OpenRouter check (uses `.dev.vars`; never commit that file):
+Quick OpenRouter smoke test:
 
 ```bash
-node --env-file=.dev.vars scripts/test-openrouter-receipt.mjs
-# With a real receipt image:
-node --env-file=.dev.vars scripts/test-openrouter-receipt.mjs ./path/to/receipt.jpg
+node --env-file=.env scripts/test-openrouter-receipt.mjs
+node --env-file=.env scripts/test-openrouter-receipt.mjs ./path/to/receipt.jpg
 ```
 
 `AUTH_SESSION_SECRET` is used both to sign session cookies and to encrypt Google refresh tokens at rest in D1.
