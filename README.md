@@ -14,7 +14,30 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 
 ## Receipt parsing: OpenAI or OpenRouter (optional)
 
-Default: **`RECEIPT_AI_PROVIDER`** unset or `workers` → uses the bound Workers AI model (no extra API key).
+Default: **`RECEIPT_AI_PROVIDER`** unset or `workers` → uses the bound **Workers AI** model (`@cf/meta/llama-3.2-11b-vision-instruct`) — no extra API key, billed on Cloudflare.
+
+You can switch **Parse** to **OpenAI** (or **OpenRouter**) for vision + OCR-style extraction: the Worker calls **`POST …/v1/chat/completions`** with an **`image_url`** (data URL) and the same JSON schema as Workers AI (`worker/receipt-openai.ts`).
+
+### Using OpenAI for receipt vision / OCR
+
+1. Create an **[OpenAI API key](https://platform.openai.com/api-keys)**.
+2. Set Worker **secret**: `npx wrangler secret put OPENAI_API_KEY` (or dashboard **Variables and Secrets**).
+3. Set **non-secret** var **`RECEIPT_AI_PROVIDER`** to **`openai`** (`wrangler.jsonc` → `vars`, or per-environment in the dashboard / `.dev.vars` locally).
+4. Optional: **`RECEIPT_VISION_MODEL`** — OpenAI model id. Defaults to **`gpt-4o-mini`** (vision-capable, lower cost). For harder receipts try **`gpt-4o`** or **`gpt-4.1`** (check [OpenAI vision docs](https://platform.openai.com/docs/guides/images) for current model names).
+5. Optional: **`OPENAI_BASE_URL`** — defaults to `https://api.openai.com/v1`. Use your **Azure OpenAI** endpoint + deployment if applicable.
+
+**Tradeoffs vs Workers AI**
+
+| | Workers AI (default) | OpenAI |
+|--|---------------------|--------|
+| **Billing** | Cloudflare Workers AI | OpenAI usage (separate invoice) |
+| **Meta “agree” step** | Required once per account (handled in code) | Not applicable |
+| **Data** | Image processed on Cloudflare’s stack | Image sent to OpenAI per [their policies](https://openai.com/policies) |
+| **Secrets** | None for AI | **`OPENAI_API_KEY`** on the Worker |
+
+### OpenRouter (OpenAI-compatible)
+
+Same flow with **`RECEIPT_AI_PROVIDER=openrouter`** and **`OPENROUTER_API_KEY`**. Pick any vision model slug OpenRouter supports (e.g. `openai/gpt-4o-mini`).
 
 | Variable | When |
 |----------|------|
@@ -31,7 +54,16 @@ npx wrangler secret put OPENAI_API_KEY
 npx wrangler secret put OPENROUTER_API_KEY
 ```
 
-Set `RECEIPT_AI_PROVIDER` via `wrangler.jsonc` `vars` or the dashboard for production.
+Set **`RECEIPT_AI_PROVIDER`** via `wrangler.jsonc` → **`vars`** (or the dashboard) for each Worker environment. Example snippet:
+
+```jsonc
+"vars": {
+  "RECEIPT_AI_PROVIDER": "openai",
+  "RECEIPT_VISION_MODEL": "gpt-4o-mini"
+}
+```
+
+(`OPENAI_API_KEY` must still be a **secret**, not in `vars`.)
 
 ## Production login (`…workers.dev`) fails
 
