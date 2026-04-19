@@ -169,6 +169,37 @@ Paste into **Google Cloud Console → OAuth consent screen** when Google asks ho
 
 **`drive.file`** (if asked separately): used server-side only so the app can create and update **files this application creates** in the user’s Drive (the receipt spreadsheet), without full Drive access.
 
+## OAuth verification: YouTube demo video (sensitive / restricted scopes)
+
+Google may require an **unlisted** (or public) YouTube link that shows the **real OAuth grant** and explains **each sensitive/restricted scope** in the context of your app. [Learn more](https://support.google.com/cloud/answer/9110914).
+
+### What to show on screen (legible)
+
+| Moment | What the viewer must see |
+|--------|---------------------------|
+| Start | **App name** as users see it (e.g. browser tab + in-app title **Scan & Parse**). |
+| | Your **production URL** (e.g. `https://scan.talktomydoc.xyz/`). |
+| | **Google Cloud Console** → **APIs & Services** → **Credentials** → your **OAuth 2.0 Client ID** (full client id string). Optionally show **Project name** and **Project number**. |
+| Sign-in | Click **Continue with Google** → full **Google account chooser** and **OAuth consent** screen with **every scope** listed (openid, email, profile, drive.file, spreadsheets, etc.). |
+| | Read aloud or on-screen captions: **why** each scope is needed (identity vs receipt spreadsheet vs Drive file the app creates). |
+| Link Google | After signed in, click **Connect Google Drive & Sheet** → second consent if shown → explain **drive.file** + **spreadsheets** again in plain language. |
+| In-app proof | Show **Open sheet** (or open Drive/Sheets in another tab) proving a **new spreadsheet** and **Receipts** tab / rows. |
+| Optional | Short clip: **Approve & save** a receipt → **new row** appears in the sheet. |
+
+### Script outline (5–10 minutes)
+
+1. **Intro (30s):** “This is Scan & Parse, hosted at [URL]. I’m demonstrating OAuth for Google verification.”
+2. **Console (60–90s):** Open Credentials → OAuth client → zoom so **Client ID** is readable; mention **same project** as the consent screen.
+3. **First grant (2–3 min):** Incognito or second Google account → **Continue with Google** → walk through consent; pause on each scope and explain.
+4. **Drive/Sheets grant (2–3 min):** **Connect Google Drive & Sheet** → consent → explain create/append spreadsheet behavior.
+5. **Proof (1–2 min):** Open the created Sheet; show headers and a row.
+
+### Technical tips
+
+- **Resolution:** 1080p, large browser zoom (125–150%) so text is readable when YouTube compresses.
+- **Audio:** Clear voiceover or large on-screen text; no copyrighted background music if avoidable.
+- **Upload:** YouTube → **Unlisted** → paste URL into the **OAuth verification** form in Google Cloud.
+
 ## Google Cloud setup
 
 1. Create an OAuth **Web application** client.
