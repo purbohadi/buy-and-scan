@@ -3,7 +3,8 @@
 import { exchangeAuthCode } from "./google-api";
 import { sha256Hex } from "./hash";
 import { buildGoogleAuthorizeUrl, createPkce, decodeIdToken } from "./oauth-google";
-import { parseReceiptWithAi } from "./receipt-ai";
+import { parseReceiptWithOpenAiCompatible, usesExternalReceiptAi } from "./receipt-openai";
+import { parseReceiptWithWorkersAi } from "./receipt-ai";
 import {
   appendUserReceiptToGoogleSheet,
   loadGoogleAccount,
@@ -25,6 +26,13 @@ export interface Env {
   AUTH_SESSION_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /** `workers` (default), `openai`, or `openrouter` */
+  RECEIPT_AI_PROVIDER?: string;
+  OPENAI_API_KEY?: string;
+  OPENROUTER_API_KEY?: string;
+  OPENAI_BASE_URL?: string;
+  OPENROUTER_BASE_URL?: string;
+  RECEIPT_VISION_MODEL?: string;
 }
 
 function json(data: unknown, init: ResponseInit = {}): Response {
@@ -312,7 +320,9 @@ export default {
         const { bytes, mime } = await readBodyImage(request);
         const contentHash = await sha256Hex(bytes);
         const { duplicateCount, totalReceipts } = await duplicateStats(env.DB, auth.sub, contentHash);
-        const draft = await parseReceiptWithAi(env.AI, bytes, mime);
+        const draft = usesExternalReceiptAi(env)
+          ? await parseReceiptWithOpenAiCompatible(env, bytes, mime)
+          : await parseReceiptWithWorkersAi(env.AI, bytes, mime);
         const body: ParseResponse = {
           draft,
           contentHash,

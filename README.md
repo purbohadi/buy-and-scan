@@ -10,6 +10,28 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 - PWA installable on your home screen; camera capture via file input (`capture="environment"`).
 - **Parse** uploads the image once; the Worker hashes the bytes (SHA-256) for duplicate detection (per user).
 - **Duplicate guard**: `409` on submit until “Confirm duplicate” if the same image was already stored for that user.
+- **Receipt AI provider** (optional): default is **Cloudflare Workers AI** (Llama 3.2 Vision). Set `RECEIPT_AI_PROVIDER=openai` or `openrouter` to parse receipts with **OpenAI** or **OpenRouter** instead (same JSON schema).
+
+## Receipt parsing: OpenAI or OpenRouter (optional)
+
+Default: **`RECEIPT_AI_PROVIDER`** unset or `workers` → uses the bound Workers AI model (no extra API key).
+
+| Variable | When |
+|----------|------|
+| `RECEIPT_AI_PROVIDER` | `openai` or `openrouter` to use external vision APIs. |
+| `OPENAI_API_KEY` | Required if `RECEIPT_AI_PROVIDER=openai`. |
+| `OPENROUTER_API_KEY` | Required if `RECEIPT_AI_PROVIDER=openrouter`. |
+| `RECEIPT_VISION_MODEL` | Optional. Defaults: OpenAI `gpt-4o-mini`, OpenRouter `openai/gpt-4o-mini`. Use any vision-capable model id your provider supports. |
+| `OPENAI_BASE_URL` | Optional; default `https://api.openai.com/v1` (Azure OpenAI: set to your resource `.../openai/deployments/...` and matching model deployment name). |
+| `OPENROUTER_BASE_URL` | Optional; default `https://openrouter.ai/api/v1`. |
+
+```bash
+npx wrangler secret put OPENAI_API_KEY
+# or
+npx wrangler secret put OPENROUTER_API_KEY
+```
+
+Set `RECEIPT_AI_PROVIDER` via `wrangler.toml` / dashboard vars or (local) `.dev.vars`.
 
 ## Google Cloud setup
 
