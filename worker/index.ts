@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { exchangeAuthCode } from "./google-api";
+import { tryServeLegalPage } from "./legal-pages";
 import { sha256Hex } from "./hash";
 import { buildGoogleAuthorizeUrl, createPkce, decodeIdToken } from "./oauth-google";
 import { parseReceiptWithOpenAiCompatible, usesExternalReceiptAi } from "./receipt-openai";
@@ -135,6 +136,11 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const secure = isSecureRequest(request);
+
+    if (request.method === "GET") {
+      const legal = await tryServeLegalPage(env, request, url.pathname);
+      if (legal) return legal;
+    }
 
     if (url.pathname === "/api/auth/me" && request.method === "GET") {
       const secret = env.AUTH_SESSION_SECRET;
