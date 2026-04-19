@@ -119,6 +119,20 @@ node --env-file=.env scripts/test-openrouter-receipt.mjs ./path/to/receipt.jpg
 
 Workers AI usage is billed to your Cloudflare account.
 
+## Workers Builds (Git → Cloudflare): stale build token
+
+If the dashboard shows:
+
+> *The build token selected for this build has been deleted or rolled…*
+
+the **API token** saved under **Workers & Pages** → your Worker → **Settings** → **Builds** → **Build configuration** is invalid (edited, deleted, or rolled). Per [Cloudflare troubleshooting](https://developers.cloudflare.com/workers/ci-cd/builds/troubleshoot/):
+
+1. Open **Build configuration** for the Worker.
+2. Under **API token**, choose **Create new token** or pick a **fresh** token you control (Workers Scripts Edit + related permissions for D1/R2 as needed).
+3. Save and **retry the build**.
+
+This is configured only in the Cloudflare dashboard, not in `wrangler.jsonc`.
+
 ## API
 
 | Method | Path | Description |
