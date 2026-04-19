@@ -81,16 +81,75 @@ Official checklist: [OAuth app verification — homepage requirements](https://s
 
 `/privacy.html` and `/terms.html` redirect to **`/privacy`** and **`/terms`**.
 
-### Search Console HTML tag (build-time)
+### How to: custom domain + Search Console (step by step)
 
-Set **`VITE_GOOGLE_SITE_VERIFICATION`** in `.env` (content value only) before `npm run build` / Workers Build so the
-meta tag is injected into `index.html`.
+Use a hostname you control, e.g. **`receipts.example.com`** (replace with your real domain).
 
-### After you add a custom domain
+#### 1) DNS (at your domain registrar or in Cloudflare DNS)
 
-1. Cloudflare: add **Custom domain** to the Worker; wait for **Active**.
-2. Search Console: **URL prefix** `https://your-domain/` → **HTML tag** method → copy `content` → `.env` as above → rebuild/deploy.
-3. OAuth consent screen: **Application home page** = `https://your-domain/`, **Privacy policy** = `https://your-domain/privacy`, same for **Authorized JavaScript origins** and **redirect URI** `https://your-domain/api/auth/callback`.
+- If the domain **already uses Cloudflare nameservers**, add a **DNS record** for the subdomain:
+  - **Type:** `CNAME`
+  - **Name:** `receipts` (or `@` for apex — apex to Workers may need [flattening](https://developers.cloudflare.com/dns/proxy-status/#root-domain); a **subdomain** like `receipts` is simplest)
+  - **Target:** your Worker’s default host, e.g. **`scan-and-parse-production.pu-cf.workers.dev`** (Cloudflare shows this when you add a custom domain), **or** the target Cloudflare suggests in the UI
+  - **Proxy status:** **Proxied** (orange cloud) so HTTPS works on your domain
+
+If the domain is **not** on Cloudflare yet, add the site to Cloudflare and switch nameservers at the registrar first, then add the record.
+
+#### 2) Attach the domain to your Worker (Cloudflare dashboard)
+
+1. **Workers & Pages** → select **`scan-and-parse-production`** (or your Worker) → **Settings** → **Domains & Routes** (or **Triggers** → **Custom Domains** depending on UI).
+2. **Add** → **Custom domain** → enter **`receipts.example.com`**.
+3. Wait until status is **Active** (DNS + certificate provisioned).
+4. In a browser, open **`https://receipts.example.com/`** — you should see the app (same as `workers.dev`).
+
+#### 3) Google Search Console — verify ownership (HTML tag)
+
+1. Go to [Google Search Console](https://search.google.com/search-console).
+2. **Add property** → **URL prefix** → enter **`https://receipts.example.com/`** (must match how users open the site, including `https`).
+3. Choose verification method **HTML tag**. Google shows a meta tag like:
+   ```html
+   <meta name="google-site-verification" content="AbCdEfGh..." />
+   ```
+4. Copy **only** the **`content`** value (the string inside the quotes), e.g. `AbCdEfGh...`.
+
+#### 4) Put that value into the build (so it appears in `index.html`)
+
+This repo injects the tag at **build time** via Vite:
+
+- **Local / `.env`:** add a line (do not commit `.env`):
+  ```env
+  VITE_GOOGLE_SITE_VERIFICATION=AbCdEfGh...
+  ```
+  Then run **`npm run build`** and deploy.
+
+- **Cloudflare Workers Builds (Git):** in the Worker → **Settings** → **Build** → **Environment variables** (or “Build variables”), add:
+  - **Variable name:** `VITE_GOOGLE_SITE_VERIFICATION`
+  - **Value:** the same `content` string  
+  Then **Save** and run a new build so `dist/index.html` contains the meta tag.
+
+5. Deploy, then open **`https://receipts.example.com/`** → **View page source** and confirm you see:
+   ```html
+   <meta name="google-site-verification" content="AbCdEfGh..." />
+   ```
+6. In Search Console, click **Verify**. If it fails, wait a few minutes for CDN cache, confirm the tag is in the **HTML source** (not only in client-rendered JS), and that you’re verifying the **exact** URL prefix you added.
+
+#### 5) Google Cloud OAuth — use the same hostname everywhere
+
+In **APIs & Services** → **OAuth consent screen** and your **OAuth client**:
+
+| Field | Example value |
+|-------|----------------|
+| Application home page | `https://receipts.example.com/` |
+| Privacy policy link | `https://receipts.example.com/privacy` |
+| Terms of service link | `https://receipts.example.com/terms` |
+| Authorized JavaScript origins | `https://receipts.example.com` |
+| Authorized redirect URIs | `https://receipts.example.com/api/auth/callback` |
+
+Remove or avoid relying on **`*.workers.dev`** URLs for verification if Google requires a domain you verified in Search Console.
+
+#### 6) Optional: branded domain in Cloudflare only
+
+You do **not** have to move DNS away from Cloudflare. You only need a **hostname** on a zone you control, proxied to the Worker, verified in Search Console, and used consistently in OAuth.
 
 ## Google Cloud setup
 
