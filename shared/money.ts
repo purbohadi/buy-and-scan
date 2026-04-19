@@ -1,5 +1,7 @@
 /** Shared money parsing / sanitization for Worker and web app (D1, Sheets, review UI). */
 
+import { normalizeDiscountItemName } from "./discount-label";
+
 /** ISO 4217 currencies with no minor unit (store as whole numbers). */
 const ZERO_DECIMAL = new Set([
   "BIF",
@@ -101,13 +103,15 @@ export function sanitizeReceiptItemMoney(
   const quantity = Math.max(1, Math.round(coerceMoneyScalar(it.quantity) || 0) || 1);
   let unitPrice = sanitizeMoneyAmount(coerceMoneyScalar(it.unitPrice), currency);
   let lineTotal = sanitizeMoneyAmount(coerceMoneyScalar(it.lineTotal), currency);
-  if (lineTotal === 0 && unitPrice > 0 && quantity > 0) {
+  if (lineTotal === 0 && unitPrice !== 0 && quantity > 0) {
+    lineTotal = sanitizeMoneyAmount(unitPrice * quantity, currency);
+  } else if (unitPrice === 0 && lineTotal !== 0 && quantity > 0) {
+    unitPrice = sanitizeMoneyAmount(lineTotal / quantity, currency);
+  } else if (unitPrice !== 0 && lineTotal !== 0 && quantity > 0) {
     lineTotal = sanitizeMoneyAmount(unitPrice * quantity, currency);
   }
-  if (unitPrice === 0 && lineTotal > 0 && quantity > 0) {
-    unitPrice = sanitizeMoneyAmount(lineTotal / quantity, currency);
-  }
-  return { name: String(it.name ?? "Item"), quantity, unitPrice, lineTotal };
+  const name = normalizeDiscountItemName(String(it.name ?? "Item"), lineTotal, unitPrice);
+  return { name, quantity, unitPrice, lineTotal };
 }
 
 export function sanitizeReceiptMoney(receipt: MoneyReceipt): MoneyReceipt {
@@ -115,7 +119,7 @@ export function sanitizeReceiptMoney(receipt: MoneyReceipt): MoneyReceipt {
   const items = receipt.items.map((it) => sanitizeReceiptItemMoney(it, currency));
   let total = sanitizeMoneyAmount(coerceMoneyScalar(receipt.total), currency);
   const sumLines = items.reduce((s, it) => s + it.lineTotal, 0);
-  if (total === 0 && sumLines > 0) total = sanitizeMoneyAmount(sumLines, currency);
+  if (total === 0 && sumLines !== 0) total = sanitizeMoneyAmount(sumLines, currency);
   return { ...receipt, currency, items, total };
 }
 

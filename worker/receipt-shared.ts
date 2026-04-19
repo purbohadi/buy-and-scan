@@ -1,3 +1,4 @@
+import { normalizeDiscountItemName } from "../shared/discount-label";
 import { coerceMoneyScalar, parseMoneyString, sanitizeMoneyAmount, sanitizeReceiptMoney } from "../shared/money";
 import type { ParsedReceipt } from "./types";
 
@@ -71,16 +72,17 @@ export function normalizeParsed(raw: Record<string, unknown>): ParsedReceipt {
   const itemsRaw = Array.isArray(raw.items) ? raw.items : [];
   const items = itemsRaw.map((it) => {
     const o = it as Record<string, unknown>;
-    const name = String(o.name ?? o.label ?? "Item");
+    const rawName = String(o.name ?? o.label ?? "Item");
     const quantity = Math.max(1, Math.round(coerceMoneyScalar(o.quantity ?? 1)) || 1);
     let unitPrice = sanitizeMoneyAmount(coerceMoneyScalar(o.unitPrice ?? o.price ?? 0), currency);
     let lineTotal = sanitizeMoneyAmount(coerceMoneyScalar(o.lineTotal ?? 0), currency);
-    if (lineTotal === 0 && unitPrice > 0) {
+    if (lineTotal === 0 && unitPrice !== 0) {
       lineTotal = sanitizeMoneyAmount(unitPrice * quantity, currency);
     }
-    if (unitPrice === 0 && lineTotal > 0 && quantity > 0) {
+    if (unitPrice === 0 && lineTotal !== 0 && quantity > 0) {
       unitPrice = sanitizeMoneyAmount(lineTotal / quantity, currency);
     }
+    const name = normalizeDiscountItemName(rawName, lineTotal, unitPrice);
     return { name, quantity, unitPrice, lineTotal };
   });
 
@@ -96,7 +98,7 @@ export function normalizeParsed(raw: Record<string, unknown>): ParsedReceipt {
 
   let total = sanitizeMoneyAmount(coerceMoneyScalar(raw.total ?? 0), currency);
   const sumLines = items.reduce((s, it) => s + it.lineTotal, 0);
-  if (total === 0 && sumLines > 0) total = sanitizeMoneyAmount(sumLines, currency);
+  if (total === 0 && sumLines !== 0) total = sanitizeMoneyAmount(sumLines, currency);
 
   return {
     vendor: raw.vendor != null ? String(raw.vendor) : undefined,
@@ -120,6 +122,7 @@ OUTPUT MUST BE VALID RFC 8259 JSON ONLY:
 - Numbers must be JSON numbers (no thousands separators, no currency symbols inside numbers). Example total: 124290 not "124,290".
 - "currency" must be a 3-letter ISO code (e.g. IDR, JPY, USD).
 - "items" is an array of objects, each with "name" (string), "quantity" (integer), "unitPrice" (number), "lineTotal" (number).
+- Discount lines: use negative numbers for "unitPrice" and/or "lineTotal" (e.g. -13810). Name may be "Diskon Transaksi" or "Discount".
 
 Valid minimal shape (example only — replace with real values from the image):
 ${RECEIPT_JSON_EXAMPLE}

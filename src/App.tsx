@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { normalizeDiscountItemName } from "../shared/discount-label";
 import { sanitizeMoneyAmount, sanitizeReceiptMoney } from "../shared/money";
 import { MoneyField } from "./MoneyField";
 import type { ParseResponse, ParsedReceipt, ReceiptItem, SubmitResponse } from "./types";
@@ -45,12 +46,15 @@ function recalcLine(it: ReceiptItem, currency: string): ReceiptItem {
   const quantity = Math.max(1, Math.round(Number(it.quantity) || 0) || 1);
   let unitPrice = sanitizeMoneyAmount(Number(it.unitPrice) || 0, c);
   let lineTotal = sanitizeMoneyAmount(Number(it.lineTotal) || 0, c);
-  if (lineTotal > 0 && unitPrice === 0 && quantity > 0) {
+  if (lineTotal === 0 && unitPrice !== 0 && quantity > 0) {
+    lineTotal = sanitizeMoneyAmount(unitPrice * quantity, c);
+  } else if (unitPrice === 0 && lineTotal !== 0 && quantity > 0) {
     unitPrice = sanitizeMoneyAmount(lineTotal / quantity, c);
-  } else {
-    lineTotal = sanitizeMoneyAmount(quantity * unitPrice, c);
+  } else if (unitPrice !== 0 && lineTotal !== 0 && quantity > 0) {
+    lineTotal = sanitizeMoneyAmount(unitPrice * quantity, c);
   }
-  return { ...it, quantity, unitPrice, lineTotal };
+  const name = normalizeDiscountItemName(it.name, lineTotal, unitPrice);
+  return { ...it, name, quantity, unitPrice, lineTotal };
 }
 
 function sumItems(items: ReceiptItem[], currency: string): number {
