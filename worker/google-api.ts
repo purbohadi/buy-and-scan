@@ -71,14 +71,44 @@ function sheetMoneyString(n: number, currency: string): string {
   return String(v);
 }
 
-function itemsDetail(receipt: ParsedReceipt): string {
+function itemsDetailBullets(receipt: ParsedReceipt): string {
   const c = receipt.currency;
-  return receipt.items
-    .map(
-      (it) =>
-        `${it.name} x${it.quantity} @ ${sheetMoneyString(it.unitPrice, c)} = ${sheetMoneyString(it.lineTotal, c)}`
-    )
-    .join(" | ");
+  const lines = receipt.items.map(
+    (it) =>
+      `• ${it.name} ×${it.quantity} @ ${sheetMoneyString(it.unitPrice, c)} = ${sheetMoneyString(it.lineTotal, c)}`
+  );
+  return lines.join("\n");
+}
+
+/** Sheet-friendly date/time (no raw ISO T/Z in cell). */
+function formatSheetDateTime(iso: string): string {
+  const s = iso.trim();
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
+function sheetDateTimeCell(receipt: ParsedReceipt, createdAtIso: string): string {
+  const raw = receipt.receiptDatetime?.trim() || createdAtIso;
+  return formatSheetDateTime(raw);
+}
+
+/** Prefer AI description; fall back so the column is rarely blank. */
+function sheetSummaryCell(receipt: ParsedReceipt): string {
+  const d = receipt.description?.trim();
+  if (d) return d;
+  const parts = [receipt.vendor?.trim(), receipt.category?.trim()].filter(Boolean);
+  if (parts.length) return parts.join(" · ");
+  if (receipt.items.length) {
+    const names = receipt.items
+      .map((it) => it.name?.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    if (names.length) return `Receipt: ${names.join(", ")}${receipt.items.length > 3 ? "…" : ""}`;
+  }
+  return "";
 }
 
 function locationCell(receipt: ParsedReceipt): string {
@@ -95,9 +125,9 @@ const RECEIPT_SHEET_TITLE = "Receipts";
 const HEADER_ROW = [
   "number",
   "id",
-  "timestamp datetime",
+  "Date Time",
   "location",
-  "description AI summary",
+  "AI Summary",
   "category",
   "items detail",
   "total price",
@@ -162,11 +192,11 @@ export async function appendReceiptRow(params: {
   const row = [
     String(params.rowNumber),
     params.receiptId,
-    params.createdAtIso,
+    sheetDateTimeCell(params.receipt, params.createdAtIso),
     locationCell(params.receipt),
-    params.receipt.description ?? "",
+    sheetSummaryCell(params.receipt),
     params.receipt.category ?? "",
-    itemsDetail(params.receipt),
+    itemsDetailBullets(params.receipt),
     sheetMoneyString(params.receipt.total, c),
     params.receipt.currency,
     params.imagePublicUrl
