@@ -302,6 +302,8 @@ node --env-file=.env scripts/test-openrouter-receipt.mjs ./path/to/receipt.jpg
 
 Workers AI usage is billed to your Cloudflare account.
 
+**Llama 3.2 Vision “5016 / submit prompt agree”:** Cloudflare requires a one-time **`{ "prompt": "agree" }`** call to that model per account (Meta license). The Worker sends this automatically when it detects the gate error, then retries the receipt parse.
+
 ## Workers Builds (Git → Cloudflare): stale build token
 
 If the dashboard shows:

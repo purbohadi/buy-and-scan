@@ -3,6 +3,20 @@ import type { ParsedReceipt } from "./types";
 
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 
+/** Meta / Cloudflare: first use per account must send `{ prompt: "agree" }` before vision calls. */
+function isLlamaVisionLicenseGate(text: string): boolean {
+  return (
+    text.includes("5016") ||
+    (text.includes("agree") && text.includes("Community License")) ||
+    text.includes("Prior to using this model")
+  );
+}
+
+async function ensureLlamaVisionLicense(ai: Ai): Promise<void> {
+  // Cloudflare Workers AI: Meta requires this once per account before vision+messages.
+  await ai.run(VISION_MODEL, { prompt: "agree" });
+}
+
 export async function parseReceiptWithWorkersAi(
   ai: Ai,
   imageBytes: Uint8Array,
@@ -10,7 +24,8 @@ export async function parseReceiptWithWorkersAi(
 ): Promise<ParsedReceipt> {
   const dataUrl = `data:${mime};base64,${bytesToBase64(imageBytes)}`;
 
-  const res = (await ai.run(VISION_MODEL, {
+  const runVision = async () =>
+    (await ai.run(VISION_MODEL, {
     messages: [
       { role: "system", content: RECEIPT_SYSTEM_PROMPT },
       {
@@ -19,10 +34,21 @@ export async function parseReceiptWithWorkersAi(
           "Extract structured receipt data as JSON only. If multiple languages, prefer amounts from printed totals."
       }
     ],
-    image: dataUrl
-  })) as { response?: string };
+      image: dataUrl
+    })) as { response?: string };
 
-  const text = typeof res === "string" ? res : res.response ?? JSON.stringify(res);
+  let res = await runVision();
+  let text = typeof res === "string" ? res : res.response ?? JSON.stringify(res);
+
+  if (isLlamaVisionLicenseGate(text)) {
+    await ensureLlamaVisionLicense(ai);
+    res = await runVision();
+    text = typeof res === "string" ? res : res.response ?? JSON.stringify(res);
+    if (isLlamaVisionLicenseGate(text)) {
+      throw new Error("Workers AI still requires Meta license acceptance after agree; check Cloudflare Workers AI.");
+    }
+  }
+
   const jsonStr = extractJsonObject(text);
   if (!jsonStr) {
     throw new Error("Model did not return parseable JSON");
