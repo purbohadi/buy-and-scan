@@ -1,7 +1,7 @@
 /**
  * Push AUTH_SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET from .env
  * using wrangler secret put. Target Worker is chosen by ENV_MODE in .env:
- *   development (default) → default Worker (scan-and-parse-dev)
+ *   development (default) → --env development (scan-and-parse-dev)
  *   production             → --env production (scan-and-parse-production)
  *
  * Usage: dotenv -e .env -- node scripts/push-worker-secrets.mjs
@@ -34,7 +34,7 @@ function parseDotEnv(text) {
 function wranglerEnvFlag(mode) {
   const m = String(mode ?? "development").toLowerCase().trim();
   if (m === "production" || m === "prod") return ["--env", "production"];
-  if (m === "development" || m === "dev" || m === "") return [];
+  if (m === "development" || m === "dev" || m === "") return ["--env", "development"];
   console.error(`Unknown ENV_MODE="${mode}". Use development or production.`);
   process.exit(1);
   return [];

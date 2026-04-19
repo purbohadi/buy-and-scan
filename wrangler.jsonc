@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "account_id": "48c90ea0b2cc8cf20170e728946a9cac",
-  "name": "scan-and-parse-dev",
+  "name": "scan-and-parse",
   "main": "worker/index.ts",
   "compatibility_date": "2026-04-18",
   "compatibility_flags": ["nodejs_compat"],
@@ -28,6 +28,31 @@
     "run_worker_first": ["/api/*"]
   },
   "env": {
+    "development": {
+      "name": "scan-and-parse-dev",
+      "ai": {
+        "binding": "AI"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "scan-and-parse-db",
+          "database_id": "c4eff5dd-0798-4491-b339-c39a3730df95"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "RECEIPTS",
+          "bucket_name": "scan-and-parse-receipts"
+        }
+      ],
+      "assets": {
+        "directory": "./dist",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*"]
+      }
+    },
     "production": {
       "name": "scan-and-parse-production",
       "ai": {

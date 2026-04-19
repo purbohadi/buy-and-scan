@@ -49,8 +49,9 @@ Set `RECEIPT_AI_PROVIDER` via `wrangler.jsonc` `vars` or the dashboard for produ
 Use a **single** **`.env`** at the repo root (gitignored). Copy **`.env.example`** → **`.env`** and fill in values.
 
 - **`ENV_MODE`** — **`development`** (default) or **`production`**. Controls **`npm run deploy`** and **`npm run secrets`**:
-  - `development` → Worker **`scan-and-parse-dev`** (default Wrangler name).
-  - `production` → Worker **`scan-and-parse-production`** (`wrangler --env production`).
+  - `development` → **`wrangler --env development`** → Worker **`scan-and-parse-dev`**.
+  - `production` → **`wrangler --env production`** → Worker **`scan-and-parse-production`**.
+- **`wrangler.jsonc`** top-level **`name`** is **`scan-and-parse`** (matches Cloudflare project / CI expectations). Named environments override the deployed worker name.
 - **`CLOUDFLARE_ACCOUNT_ID`** / **`CLOUDFLARE_API_TOKEN`** — for Wrangler CLI (`whoami`, `deploy`, D1 commands). `account_id` is also in `wrangler.jsonc`; the env var is optional if you rely on that file alone.
 - **Google / receipt keys** — same `.env`; Wrangler dev reads them via a generated **`.dev.vars`** (see below). **`ENV_MODE` is not** written to `.dev.vars` (local Worker does not need it).
 
@@ -77,7 +78,7 @@ Use a **single** **`.env`** at the repo root (gitignored). Copy **`.env.example`
 
 4. Copy `.env.example` → `.env` and set at least `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SESSION_SECRET`, and optionally `CLOUDFLARE_API_TOKEN` for CLI.
 
-5. **`npm run dev`** runs **`predev`**: it syncs **`.env` → `.dev.vars`** for Wrangler, **excluding `CLOUDFLARE_*`** so your API token is not injected into the Worker runtime. Then Vite + `wrangler dev` start.
+5. **`npm run dev`** runs **`predev`**: it syncs **`.env` → `.dev.vars`** for Wrangler, **excluding `CLOUDFLARE_*` and `ENV_MODE`**. **`wrangler dev`** uses **`--env development`** (Worker **`scan-and-parse-dev`**).
 
    Open http://localhost:5173
 

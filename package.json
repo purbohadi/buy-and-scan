@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -k -n client,worker -c blue,magenta \"vite --port 5173\" \"npm run dev:worker\"",
     "predev": "node scripts/sync-dev-vars-from-env.mjs",
-    "dev:worker": "wrangler dev --port 8787",
+    "dev:worker": "wrangler dev --port 8787 --env development",
     "build": "vite build",
     "preview": "npm run build && wrangler dev",
     "secrets": "dotenv -e .env -- node scripts/push-worker-secrets.mjs",
