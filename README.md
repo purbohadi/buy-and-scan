@@ -92,6 +92,14 @@ npx wrangler secret put GOOGLE_CLIENT_SECRET
 
 Set non-secret `RECEIPT_AI_PROVIDER` in the dashboard or `wrangler.jsonc` `vars` when using OpenAI/OpenRouter keys.
 
+Quick OpenRouter check (uses `.dev.vars`; never commit that file):
+
+```bash
+node --env-file=.dev.vars scripts/test-openrouter-receipt.mjs
+# With a real receipt image:
+node --env-file=.dev.vars scripts/test-openrouter-receipt.mjs ./path/to/receipt.jpg
+```
+
 `AUTH_SESSION_SECRET` is used both to sign session cookies and to encrypt Google refresh tokens at rest in D1.
 
 Workers AI usage is billed to your Cloudflare account.
