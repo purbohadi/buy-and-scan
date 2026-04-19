@@ -145,21 +145,30 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Next bullet field: ` * **OtherLabel**` (spaces optional) */
+const MD_NEXT_FIELD = "(?=\\s*\\*\\s*\\*\\*|\\n|$)";
+
 /**
- * Workers AI often emits `**Vendor:** Toko …` (value NOT wrapped in `**`).
- * Some models use `**Vendor:** **Toko …**` — support both.
+ * Markdown-ish fields from vision models:
+ * - `**Vendor:** Toko …` or `**Vendor:** **Toko**`
+ * - `* **Vendor**: Toko … * **Next**:` (bulleted chain on one line)
  */
 function mdField(text: string, label: string): string | null {
   const esc = escapeRegExp(label);
-  const wrapped = new RegExp(
-    `\\*\\*\\s*${esc}\\s*:\\s*\\*\\*\\s*\\*\\*([^*]+)\\*\\*`,
-    "i"
-  );
-  const w = text.match(wrapped);
-  if (w) return w[1].trim();
-  const plain = new RegExp(`\\*\\*\\s*${esc}\\s*:\\s*\\*\\*\\s*(.+?)(?=\\s*\\*\\*|$)`, "is");
-  const p = text.match(plain);
-  return p ? p[1].trim() : null;
+  const patterns: RegExp[] = [
+    // `* **Vendor**: value * **Next**:` (colon after closing ** of label)
+    new RegExp(`\\*\\s*\\*\\*${esc}\\*\\*\\s*:\\s*(.+?)${MD_NEXT_FIELD}`, "is"),
+    new RegExp(`\\*\\s*\\*\\*\\s*${esc}\\s*:\\s*\\*\\*\\s*\\*\\*([^*]+)\\*\\*`, "i"),
+    new RegExp(`\\*\\s*\\*\\*\\s*${esc}\\s*:\\s*\\*\\*\\s*(.+?)${MD_NEXT_FIELD}`, "is"),
+    new RegExp(`\\*\\s*\\*\\*\\s*${esc}\\s*:\\s*(.+?)${MD_NEXT_FIELD}`, "is"),
+    new RegExp(`\\*\\*\\s*${esc}\\s*:\\s*\\*\\*\\s*\\*\\*([^*]+)\\*\\*`, "i"),
+    new RegExp(`\\*\\*\\s*${esc}\\s*:\\s*\\*\\*\\s*(.+?)${MD_NEXT_FIELD}`, "is")
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m?.[1]) return m[1].trim();
+  }
+  return null;
 }
 
 /**
@@ -170,7 +179,11 @@ export function parseReceiptFromMarkdownStyle(text: string): ParsedReceipt | nul
   if (!t.includes("**") && !t.includes("Vendor")) return null;
 
   const vendor = mdField(t, "Vendor");
-  const dateRaw = mdField(t, "Receipt Date") ?? mdField(t, "Date") ?? mdField(t, "receiptDatetime");
+  const dateRaw =
+    mdField(t, "Receipt Date and Time") ??
+    mdField(t, "Receipt Date") ??
+    mdField(t, "Date") ??
+    mdField(t, "receiptDatetime");
   const currencyRaw = mdField(t, "Currency");
   const totalRaw = mdField(t, "Total");
   const category = mdField(t, "Category");
@@ -183,6 +196,10 @@ export function parseReceiptFromMarkdownStyle(text: string): ParsedReceipt | nul
       const n = parseMoneyString(money[0]);
       if (n != null) total = n;
     }
+    if (total === 0) {
+      const n = parseMoneyString(totalRaw.trim());
+      if (n != null) total = n;
+    }
   }
 
   let currency = "IDR";
@@ -193,15 +210,18 @@ export function parseReceiptFromMarkdownStyle(text: string): ParsedReceipt | nul
   }
 
   const items: ParsedReceipt["items"] = [];
-  const itemsBlock = t.split(/\*\*Items:\*\*/i)[1];
+  const itemsSplit = t.split(/\*\*Items\*\*\s*:?/i)[1] ?? t.split(/\*\*Items:\*\*/i)[1];
+  const itemsBlock = itemsSplit;
   if (itemsBlock) {
     const bulletNames = [
       ...itemsBlock.matchAll(/(?:^|\n)\s*[-*]\s*\*\*([^*]+)\*\*/gim),
       ...itemsBlock.matchAll(/(?:^|\n)\s*\*\s+\*\*([^*]+)\*\*/gim)
     ].map((m) => m[1].trim());
     const seen = new Set<string>();
+    const skipField = (n: string) =>
+      /^(vendor|total|currency|category|description|location|receipt date|items)\b/i.test(n);
     for (const name of bulletNames) {
-      if (!name || /^items$/i.test(name) || seen.has(name)) continue;
+      if (!name || /^items$/i.test(name) || skipField(name) || seen.has(name)) continue;
       seen.add(name);
       items.push({ name, quantity: 1, unitPrice: 0, lineTotal: 0 });
     }

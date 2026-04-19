@@ -18,7 +18,7 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 |------|----------------|
 | **OpenRouter** | `OPENROUTER_API_KEY` is set; uses `POST …/v1/chat/completions` + `image_url` (`worker/receipt-openai.ts`). |
 | **OpenAI** | OpenRouter fails or is skipped (no key); `OPENAI_API_KEY` is set. |
-| **Gemini** | Prior steps fail or empty; `GEMINI_API_KEY` set — Google `generateContent` + vision (`worker/receipt-gemini.ts`), `responseMimeType: application/json`. Default model **`gemini-2.0-flash`**; override with **`GOOGLE_GEMINI_MODEL`**. |
+| **Gemini** | Prior steps fail or empty; `GEMINI_API_KEY` set — Google `generateContent` + vision (`worker/receipt-gemini.ts`), `responseMimeType: application/json`. Default **`gemini-2.5-flash`** with automatic fallback to other models if Google returns 404; override with **`GOOGLE_GEMINI_MODEL`**. |
 | **Workers AI** | Always last; `@cf/meta/llama-3.2-11b-vision-instruct` (`worker/receipt-ai.ts`). |
 
 **Secrets (optional):** `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, **`GEMINI_API_KEY`** (recommended if Workers AI returns empty JSON on your receipts).  
