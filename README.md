@@ -76,10 +76,10 @@ Official checklist: [OAuth app verification — homepage requirements](https://s
 | Page | Path |
 |------|------|
 | Application home page | `https://<your-domain>/` |
-| Privacy policy | `https://<your-domain>/privacy` |
-| Terms of service | `https://<your-domain>/terms` |
+| Privacy policy | `https://<your-domain>/privacy` or `https://<your-domain>/privacy.html` |
+| Terms of service | `https://<your-domain>/terms` or `https://<your-domain>/terms.html` |
 
-`/privacy.html` and `/terms.html` redirect to **`/privacy`** and **`/terms`**.
+Both paths return **HTTP 200** with **`Content-Type: text/html; charset=utf-8`** (no redirect to another URL for the policy body). Use the **same** URL string on the OAuth consent screen as in your app links.
 
 ### How to: custom domain + Search Console (step by step)
 
