@@ -1,5 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { sanitizeReceiptMoney } from "../shared/money";
 import { exchangeAuthCode } from "./google-api";
 import { tryServeLegalPage } from "./legal-pages";
 import { sha256Hex } from "./hash";
@@ -405,7 +406,7 @@ export default {
 
         const imageUrl = publicImageUrl(request, key);
         const createdAt = new Date().toISOString();
-        const receipt = body.receipt as ParsedReceipt;
+        const receipt = sanitizeReceiptMoney(body.receipt as ParsedReceipt);
 
         await env.DB
           .prepare(

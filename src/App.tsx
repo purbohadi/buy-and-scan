@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { sanitizeMoneyAmount, sanitizeReceiptMoney } from "../shared/money";
+import { MoneyField } from "./MoneyField";
 import type { ParseResponse, ParsedReceipt, ReceiptItem, SubmitResponse } from "./types";
 
 type AuthMe = {
@@ -38,13 +40,22 @@ function emptyItem(): ReceiptItem {
   return { name: "", quantity: 1, unitPrice: 0, lineTotal: 0 };
 }
 
-function recalcLine(it: ReceiptItem): ReceiptItem {
-  const lineTotal = Math.round(it.quantity * it.unitPrice * 100) / 100;
-  return { ...it, lineTotal };
+function recalcLine(it: ReceiptItem, currency: string): ReceiptItem {
+  const c = String(currency ?? "JPY").toUpperCase().slice(0, 8);
+  const quantity = Math.max(1, Math.round(Number(it.quantity) || 0) || 1);
+  let unitPrice = sanitizeMoneyAmount(Number(it.unitPrice) || 0, c);
+  let lineTotal = sanitizeMoneyAmount(Number(it.lineTotal) || 0, c);
+  if (lineTotal > 0 && unitPrice === 0 && quantity > 0) {
+    unitPrice = sanitizeMoneyAmount(lineTotal / quantity, c);
+  } else {
+    lineTotal = sanitizeMoneyAmount(quantity * unitPrice, c);
+  }
+  return { ...it, quantity, unitPrice, lineTotal };
 }
 
-function sumItems(items: ReceiptItem[]): number {
-  return Math.round(items.reduce((s, it) => s + (Number(it.lineTotal) || 0), 0) * 100) / 100;
+function sumItems(items: ReceiptItem[], currency: string): number {
+  const c = String(currency ?? "JPY").toUpperCase().slice(0, 8);
+  return sanitizeMoneyAmount(items.reduce((s, it) => s + (Number(it.lineTotal) || 0), 0), c);
 }
 
 export default function App() {
@@ -151,7 +162,7 @@ export default function App() {
       const data = (await res.json()) as ParseResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Parse failed");
       setParseResult(data);
-      setReceipt(data.draft);
+      setReceipt(sanitizeReceiptMoney(data.draft));
       setContentHash(data.contentHash);
       setConfirmDuplicate(false);
       setTotalReceipts(data.totalReceipts);
@@ -166,22 +177,23 @@ export default function App() {
     setReceipt((r) => {
       if (!r) return r;
       const items = [...r.items];
-      const next = recalcLine({ ...items[idx], ...patch });
+      const merged = { ...items[idx], ...patch };
+      const next = recalcLine(merged, r.currency);
       items[idx] = next;
-      const total = sumItems(items);
+      const total = sumItems(items, r.currency);
       return { ...r, items, total };
     });
   };
 
   const addItem = () => {
-    setReceipt((r) => (r ? { ...r, items: [...r.items, recalcLine(emptyItem())] } : r));
+    setReceipt((r) => (r ? { ...r, items: [...r.items, recalcLine(emptyItem(), r.currency)] } : r));
   };
 
   const removeItem = (idx: number) => {
     setReceipt((r) => {
       if (!r) return r;
       const items = r.items.filter((_, i) => i !== idx);
-      return { ...r, items, total: sumItems(items) };
+      return { ...r, items, total: sumItems(items, r.currency) };
     });
   };
 
@@ -217,6 +229,7 @@ export default function App() {
     setLastSubmit(null);
     try {
       const imageBase64 = await fileToBase64(file);
+      const payload = sanitizeReceiptMoney(receipt);
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -225,7 +238,7 @@ export default function App() {
           contentHash,
           imageMime: file.type || "image/jpeg",
           imageBase64,
-          receipt,
+          receipt: payload,
           confirmDuplicate
         })
       });
@@ -412,19 +425,18 @@ export default function App() {
                 <input
                   id="currency"
                   value={receipt.currency}
-                  onChange={(e) => setReceipt({ ...receipt, currency: e.target.value.toUpperCase() })}
+                  onChange={(e) =>
+                  setReceipt(sanitizeReceiptMoney({ ...receipt, currency: e.target.value.toUpperCase() }))
+                }
                 />
               </div>
-              <div className="field">
-                <label htmlFor="total">Total</label>
-                <input
-                  id="total"
-                  type="number"
-                  step="0.01"
-                  value={Number.isFinite(receipt.total) ? receipt.total : 0}
-                  onChange={(e) => setReceipt({ ...receipt, total: Number(e.target.value) })}
-                />
-              </div>
+              <MoneyField
+                id="total"
+                label="Total"
+                value={receipt.total}
+                currency={receipt.currency}
+                onCommit={(n) => setReceipt((r) => (r ? { ...r, total: n } : r))}
+              />
               <div className="field">
                 <label htmlFor="category">Category</label>
                 <input
@@ -472,48 +484,54 @@ export default function App() {
                 Add row
               </button>
             </div>
-            <div className="table-wrap">
-              <table>
+            <div className="table-wrap overflow-x-auto rounded-lg border border-slate-500/20">
+              <table className="min-w-full border-collapse text-left text-sm text-slate-200">
                 <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Qty</th>
-                    <th>Unit</th>
-                    <th>Line</th>
-                    <th />
+                  <tr className="border-b border-slate-500/20 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <th className="px-2 py-2">Name</th>
+                    <th className="w-20 px-2 py-2">Qty</th>
+                    <th className="min-w-[9rem] px-2 py-2">Unit</th>
+                    <th className="min-w-[9rem] px-2 py-2">Line</th>
+                    <th className="w-24 px-2 py-2" />
                   </tr>
                 </thead>
                 <tbody>
                   {receipt.items.map((it, idx) => (
-                    <tr key={idx}>
-                      <td>
-                        <input value={it.name} onChange={(e) => updateItem(idx, { name: e.target.value })} />
+                    <tr key={idx} className="border-b border-slate-500/10 align-top">
+                      <td className="px-2 py-2">
+                        <input
+                          className="w-full min-w-[8rem] rounded-lg border border-slate-500/40 bg-slate-950/60 px-2 py-1.5 text-sm outline-none ring-sky-400/30 focus:ring-2"
+                          value={it.name}
+                          onChange={(e) => updateItem(idx, { name: e.target.value })}
+                        />
                       </td>
-                      <td style={{ width: 88 }}>
+                      <td className="px-2 py-2">
                         <input
                           type="number"
-                          step="0.01"
+                          min={1}
+                          step={1}
+                          className="w-full rounded-lg border border-slate-500/40 bg-slate-950/60 px-2 py-1.5 font-mono text-sm tabular-nums outline-none ring-sky-400/30 focus:ring-2"
                           value={it.quantity}
                           onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) })}
                         />
                       </td>
-                      <td style={{ width: 110 }}>
-                        <input
-                          type="number"
-                          step="0.01"
+                      <td className="px-2 py-2">
+                        <MoneyField
                           value={it.unitPrice}
-                          onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) })}
+                          currency={receipt.currency}
+                          compact
+                          onCommit={(n) => updateItem(idx, { unitPrice: n })}
                         />
                       </td>
-                      <td style={{ width: 110 }}>
-                        <input
-                          type="number"
-                          step="0.01"
+                      <td className="px-2 py-2">
+                        <MoneyField
                           value={it.lineTotal}
-                          onChange={(e) => updateItem(idx, { lineTotal: Number(e.target.value) })}
+                          currency={receipt.currency}
+                          compact
+                          onCommit={(n) => updateItem(idx, { lineTotal: n })}
                         />
                       </td>
-                      <td>
+                      <td className="px-2 py-2">
                         <button type="button" className="btn btn-secondary" onClick={() => removeItem(idx)}>
                           Remove
                         </button>
