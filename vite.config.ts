@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
         name: "inject-google-site-verification",
         transformIndexHtml(html) {
           if (!googleSiteVerification.trim()) return html;
+          if (html.includes("google-site-verification")) return html;
           const content = googleSiteVerification.replace(/"/g, "&quot;");
           return html.replace(
             "</head>",
