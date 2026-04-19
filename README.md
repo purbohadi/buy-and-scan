@@ -85,7 +85,12 @@ Secrets:
 npx wrangler secret put AUTH_SESSION_SECRET
 npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
+# Optional external receipt AI:
+# npx wrangler secret put OPENAI_API_KEY
+# npx wrangler secret put OPENROUTER_API_KEY
 ```
+
+Set non-secret `RECEIPT_AI_PROVIDER` in the dashboard or `wrangler.jsonc` `vars` when using OpenAI/OpenRouter keys.
 
 `AUTH_SESSION_SECRET` is used both to sign session cookies and to encrypt Google refresh tokens at rest in D1.
 
