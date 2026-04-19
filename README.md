@@ -43,6 +43,16 @@ Checklist:
    (use your real host if different). **Authorized JavaScript origins**: `https://scan-and-parse-production.pu-cf.workers.dev` (no path, no trailing `/`).
 3. After sign-in, the app shows **`Sign-in failed: …`** with a `reason` query param — use that text (or browser devtools → Network → `/api/auth/callback` redirect) to debug.
 
+## Google OAuth: “Access blocked … has not completed verification” (403)
+
+Your app is almost certainly in **Testing** on the **OAuth consent screen**. In that mode, **only** emails listed under **Test users** can sign in.
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **OAuth consent screen**.
+2. Under **Test users**, click **+ Add users** and add **`purbohadi.utomo@gmail.com`** (and any other Gmail you use on the phone).
+3. Save and try **Continue with Google** again.
+
+**Publishing** the app to **In production** allows any Google account, but **sensitive / restricted scopes** (e.g. Drive, Sheets) often require **Google verification** (privacy policy, domain verification, review). For a personal trip app, **Testing + test users** is usually enough.
+
 ## Google Cloud setup
 
 1. Create an OAuth **Web application** client.
