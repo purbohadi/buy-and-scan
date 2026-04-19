@@ -107,6 +107,25 @@ npm run deploy    # build + deploy to that Worker
 
 Rotate `CLOUDFLARE_API_TOKEN` if it was ever exposed.
 
+## GitHub Actions auto-deploy
+
+Workflow: **`.github/workflows/deploy.yml`**
+
+On every **push** to **`main`** or **`dev`**, the workflow runs `npm run lint` and **`npm run deploy:ci`**, which deploys using **`CLOUDFLARE_API_TOKEN`** from GitHub and branch-based **`ENV_MODE`**:
+
+| Branch | `ENV_MODE` | Worker |
+|--------|------------|--------|
+| `main` | `production` | `scan-and-parse-production` |
+| `dev` | `development` | `scan-and-parse-dev` |
+
+**Setup (GitHub repo → Settings → Secrets and variables → Actions):**
+
+1. Add **`CLOUDFLARE_API_TOKEN`** — same kind of token you use locally (Workers Scripts Edit, D1, R2 as needed). `account_id` is already in `wrangler.jsonc`.
+
+Worker runtime secrets (`AUTH_SESSION_SECRET`, `GOOGLE_*`) are **not** set by this workflow; set them once per environment with `npm run secrets` locally or in the Cloudflare dashboard.
+
+If you already use **Cloudflare Workers “Connect to Git”** builds, either turn that off or remove this workflow so you do not deploy twice per push.
+
 ## Git branches vs `ENV_MODE`
 
 | Git branch | Typical `ENV_MODE` in `.env` | Worker |
