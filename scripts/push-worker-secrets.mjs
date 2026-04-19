@@ -1,8 +1,10 @@
 /**
- * Push AUTH_SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET from .env
- * using wrangler secret put. Target Worker is chosen by ENV_MODE in .env:
+ * Push secrets from .env using wrangler secret put. Target Worker is chosen by ENV_MODE:
  *   development (default) → --env development (scan-and-parse-dev)
  *   production             → --env production (scan-and-parse-production)
+ *
+ * Always (when non-empty): AUTH_SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+ * Optional AI keys (when non-empty): OPENROUTER_API_KEY, OPENAI_API_KEY
  *
  * Usage: dotenv -e .env -- node scripts/push-worker-secrets.mjs
  */
@@ -40,7 +42,13 @@ function wranglerEnvFlag(mode) {
   return [];
 }
 
-const KEYS = ["AUTH_SESSION_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"];
+const KEYS = [
+  "AUTH_SESSION_SECRET",
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "OPENROUTER_API_KEY",
+  "OPENAI_API_KEY"
+];
 
 if (!existsSync(envPath)) {
   console.error("Missing .env — copy .env.example and fill Google + session secrets.");
@@ -49,7 +57,7 @@ if (!existsSync(envPath)) {
 
 const vars = parseDotEnv(readFileSync(envPath, "utf8"));
 const envFlag = wranglerEnvFlag(vars.ENV_MODE);
-const modeLabel = envFlag.length ? "production" : "development";
+const modeLabel = envFlag[1] === "production" ? "production" : "development";
 console.log(`Pushing secrets to ${modeLabel} Worker…`);
 
 let pushed = 0;
@@ -76,7 +84,9 @@ for (const key of KEYS) {
 }
 
 if (pushed === 0) {
-  console.error("No secrets pushed — fill AUTH_SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET in .env");
+  console.error(
+    "No secrets pushed — set at least one of: AUTH_SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OPENROUTER_API_KEY, OPENAI_API_KEY in .env"
+  );
   process.exit(1);
 }
 console.log(`Done (${pushed} secrets).`);
