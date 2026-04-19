@@ -128,6 +128,13 @@ Use best effort for Japanese and Indonesian receipts.`;
 
 export const RECEIPT_USER_JSON_ONLY = `Return ONLY the JSON object for this receipt image. Start with { and end with }. Every string in JSON must use double quotes. No trailing commas.`;
 
+/** Extra emphasis for vision models that return empty {} under strict JSON mode. */
+export const RECEIPT_USER_JSON_ITEMS_TOTAL = `${RECEIPT_USER_JSON_ONLY}
+
+You MUST copy every line item from the receipt into "items" (name, quantity, unitPrice, lineTotal as numbers).
+You MUST set "total" to the tax-included total shown on the receipt (numeric only, no Rp or commas).
+Set "currency" to IDR, JPY, or USD etc. from the receipt. Do not return an empty "items" array unless the receipt truly has no line items.`;
+
 /** @deprecated use parseMoneyString from shared/money */
 export const parseMoneyToNumber = parseMoneyString;
 
