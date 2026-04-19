@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.worker.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "types": ["node", "jest", "@cloudflare/workers-types"],
+    "noEmit": true
+  },
+  "include": ["worker/**/*.ts", "test/**/*.ts"]
+}
