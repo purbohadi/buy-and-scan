@@ -331,6 +331,8 @@ This is configured only in the Cloudflare dashboard, not in `wrangler.jsonc`.
 | `POST` | `/api/auth/logout` | Clears session cookie |
 | `GET` | `/api/stats` | `{ totalReceipts }` (session) |
 | `GET` | `/api/receipts` | `{ receipts: [{ id, createdAt, receiptDatetime, description, vendor, total, currency, imageUrl }] }` newest first (session) |
+| `POST` | `/api/receipts/delete` | Body `{ ids: string[] }` — deletes D1 + R2 for owned receipts; returns `{ deleted, totalReceipts }` |
+| `POST` | `/api/sheet/rebuild` | Creates a new Google Sheet, updates `google_accounts`, exports all stored receipts (oldest first) |
 | `POST` | `/api/parse` | Parse image (session) |
 | `POST` | `/api/submit` | Save + append row to user’s sheet via Sheets API (session) |
 | `GET` | `/api/receipt-image/:key` | Image for signed-in owner (session) |

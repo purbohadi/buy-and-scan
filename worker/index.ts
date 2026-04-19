@@ -6,6 +6,7 @@ import { tryServeLegalPage } from "./legal-pages";
 import { sha256Hex } from "./hash";
 import { buildGoogleAuthorizeUrl, createPkce, decodeIdToken } from "./oauth-google";
 import { parseReceiptWithFallback } from "./receipt-parse-chain";
+import { rebuildUserGoogleSheetFromD1 } from "./receipt-sheet-rebuild";
 import {
   appendUserReceiptToGoogleSheet,
   loadGoogleAccount,
@@ -17,7 +18,16 @@ import {
   getSessionFromRequest,
   type SessionUser
 } from "./session";
-import type { ParseResponse, ParsedReceipt, StoredReceiptListItem, SubmitBody, SubmitResponse } from "./types";
+import type {
+  ParseResponse,
+  ParsedReceipt,
+  ReceiptsDeleteBody,
+  ReceiptsDeleteResponse,
+  SheetRebuildResponse,
+  StoredReceiptListItem,
+  SubmitBody,
+  SubmitResponse
+} from "./types";
 
 export interface Env {
   AI: Ai;
@@ -401,6 +411,58 @@ export default {
         imageUrl: r.image_public_url
       }));
       return json({ receipts });
+    }
+
+    if (url.pathname === "/api/receipts/delete" && request.method === "POST") {
+      const auth = await requireUser(request, env);
+      if (auth instanceof Response) return auth;
+      try {
+        const body = (await request.json()) as ReceiptsDeleteBody;
+        const ids = Array.from(new Set((body.ids ?? []).map((id) => String(id).trim()).filter(Boolean)));
+        if (ids.length === 0) {
+          return json({ error: "ids array required" }, { status: 400 });
+        }
+        if (ids.length > 100) {
+          return json({ error: "Maximum 100 receipts per request" }, { status: 400 });
+        }
+        let deleted = 0;
+        for (const id of ids) {
+          const row = await env.DB
+            .prepare("SELECT image_r2_key FROM receipts WHERE id = ? AND user_id = ? LIMIT 1")
+            .bind(id, auth.sub)
+            .first<{ image_r2_key: string }>();
+          if (!row) continue;
+          await env.RECEIPTS.delete(row.image_r2_key);
+          const del = await env.DB.prepare("DELETE FROM receipts WHERE id = ? AND user_id = ?").bind(id, auth.sub).run();
+          if (del.meta.changes && del.meta.changes > 0) deleted += del.meta.changes;
+        }
+        const tot = await env.DB
+          .prepare("SELECT COUNT(*) AS c FROM receipts WHERE user_id = ?")
+          .bind(auth.sub)
+          .first<{ c: number }>();
+        const res: ReceiptsDeleteResponse = { deleted, totalReceipts: tot?.c ?? 0 };
+        return json(res);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Delete failed";
+        return json({ error: message }, { status: 400 });
+      }
+    }
+
+    if (url.pathname === "/api/sheet/rebuild" && request.method === "POST") {
+      const auth = await requireUser(request, env);
+      if (auth instanceof Response) return auth;
+      try {
+        const out = await rebuildUserGoogleSheetFromD1(env, auth.sub, request);
+        const res: SheetRebuildResponse = {
+          spreadsheetId: out.spreadsheetId,
+          spreadsheetUrl: out.spreadsheetUrl,
+          rowsWritten: out.rowsWritten
+        };
+        return json(res);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Sheet rebuild failed";
+        return json({ error: message }, { status: 400 });
+      }
     }
 
     if (url.pathname === "/api/parse" && request.method === "POST") {

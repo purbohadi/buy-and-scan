@@ -62,3 +62,18 @@ export type StoredReceiptListItem = {
   currency: string;
   imageUrl: string;
 };
+
+export type ReceiptsDeleteBody = {
+  ids: string[];
+};
+
+export type ReceiptsDeleteResponse = {
+  deleted: number;
+  totalReceipts: number;
+};
+
+export type SheetRebuildResponse = {
+  spreadsheetId: string;
+  spreadsheetUrl: string;
+  rowsWritten: number;
+};

@@ -181,17 +181,15 @@ export async function ensureReceiptSpreadsheet(accessToken: string): Promise<{ i
   return { id, url };
 }
 
-export async function appendReceiptRow(params: {
-  accessToken: string;
-  spreadsheetId: string;
+export function receiptToSheetRow(params: {
   rowNumber: number;
   receiptId: string;
   createdAtIso: string;
   receipt: ParsedReceipt;
   imagePublicUrl: string;
-}): Promise<void> {
+}): string[] {
   const c = params.receipt.currency;
-  const row = [
+  return [
     String(params.rowNumber),
     params.receiptId,
     sheetDateTimeCell(params.receipt, params.createdAtIso),
@@ -203,6 +201,24 @@ export async function appendReceiptRow(params: {
     params.receipt.currency,
     params.imagePublicUrl
   ];
+}
+
+export async function appendReceiptRow(params: {
+  accessToken: string;
+  spreadsheetId: string;
+  rowNumber: number;
+  receiptId: string;
+  createdAtIso: string;
+  receipt: ParsedReceipt;
+  imagePublicUrl: string;
+}): Promise<void> {
+  const row = receiptToSheetRow({
+    rowNumber: params.rowNumber,
+    receiptId: params.receiptId,
+    createdAtIso: params.createdAtIso,
+    receipt: params.receipt,
+    imagePublicUrl: params.imagePublicUrl
+  });
   const encRange = encodeURIComponent(`${RECEIPT_SHEET_TITLE}!A:J`);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${params.spreadsheetId}/values/${encRange}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   const res = await fetch(url, {
@@ -216,5 +232,34 @@ export async function appendReceiptRow(params: {
   if (!res.ok) {
     const t = await res.text();
     throw new Error(`Append row failed: ${res.status} ${t.slice(0, 200)}`);
+  }
+}
+
+const BATCH_ROWS = 200;
+
+/** Append many rows after header (e.g. sheet rebuild). Chunks to avoid huge payloads. */
+export async function appendReceiptRowsBatch(
+  accessToken: string,
+  spreadsheetId: string,
+  rows: string[][]
+): Promise<void> {
+  if (rows.length === 0) return;
+  for (let i = 0; i < rows.length; i += BATCH_ROWS) {
+    const chunk = rows.slice(i, i + BATCH_ROWS);
+    const startRow = 2 + i;
+    const range = encodeURIComponent(`${RECEIPT_SHEET_TITLE}!A${startRow}:J${startRow + chunk.length - 1}`);
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`;
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ values: chunk })
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`Batch write failed at row ${startRow}: ${res.status} ${t.slice(0, 300)}`);
+    }
   }
 }
