@@ -135,6 +135,11 @@ export default function App() {
     else setTotalReceipts(null);
   }, []);
 
+  const bumpReceiptsUi = useCallback(() => {
+    setReceiptsListNonce((n) => n + 1);
+    void refreshAuth();
+  }, [refreshAuth]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("google") === "linked") {
@@ -234,8 +239,7 @@ export default function App() {
       }
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       setLastSubmit(data);
-      setTotalReceipts(data.totalReceipts);
-      setReceiptsListNonce((n) => n + 1);
+      bumpReceiptsUi();
       setFile(null);
       setParseResult(null);
       setReceipt(null);
@@ -328,8 +332,7 @@ export default function App() {
       }
       if (!res.ok) throw new Error(data.error ?? "Submit failed");
       setLastSubmit(data);
-      setTotalReceipts(data.totalReceipts);
-      setReceiptsListNonce((n) => n + 1);
+      bumpReceiptsUi();
       setFile(null);
       setParseResult(null);
       setReceipt(null);
@@ -751,7 +754,13 @@ export default function App() {
               Saved receipts for your account (newest first). Date Time uses receipt date when set, otherwise saved
               time.
             </p>
-            <ReceiptsList signedIn={signedIn} refreshKey={receiptsListNonce} />
+            <ReceiptsList
+              signedIn={signedIn}
+              googleLinked={Boolean(auth?.googleLinked)}
+              refreshKey={receiptsListNonce}
+              parentBusy={isBusy}
+              onAfterMutation={bumpReceiptsUi}
+            />
           </section>
         )}
 
