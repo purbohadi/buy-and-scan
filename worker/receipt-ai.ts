@@ -26,8 +26,48 @@ function visionPayload(dataUrl: string) {
           "Extract structured receipt data as JSON only. If multiple languages, prefer amounts from printed totals."
       }
     ],
-    image: dataUrl
+    image: dataUrl,
+    temperature: 0.1,
+    max_tokens: 2048
   };
+}
+
+function workersAiOutputToText(res: unknown): string {
+  if (typeof res === "string") return res;
+  if (!res || typeof res !== "object") return String(res);
+  const o = res as Record<string, unknown>;
+  if (typeof o.response === "string") return o.response;
+  const choices = o.choices;
+  if (Array.isArray(choices) && choices[0] && typeof choices[0] === "object") {
+    const msg = (choices[0] as { message?: { content?: unknown } }).message;
+    const content = msg?.content;
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      return content
+        .filter((c): c is { type?: string; text?: string } => c != null && typeof c === "object")
+        .filter((c) => c.type === "text" && typeof c.text === "string")
+        .map((c) => c.text!)
+        .join("");
+    }
+  }
+  return JSON.stringify(res);
+}
+
+function parseReceiptJsonFromModelText(text: string): ParsedReceipt {
+  const jsonStr = extractJsonObject(text);
+  if (!jsonStr) {
+    const preview = text.replace(/\s+/g, " ").trim().slice(0, 280);
+    throw new Error(
+      `Model did not return parseable JSON (preview: ${preview || "(empty)"})`
+    );
+  }
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+  } catch {
+    throw new Error("Model returned invalid JSON");
+  }
+  return normalizeParsed(parsed);
 }
 
 export async function parseReceiptWithWorkersAi(
@@ -51,21 +91,27 @@ export async function parseReceiptWithWorkersAi(
     res = await runVision();
   }
 
-  let text = typeof res === "string" ? res : res.response ?? JSON.stringify(res);
+  let text = workersAiOutputToText(res);
 
   if (isLlamaVisionLicenseGate(text)) {
     await ensureLlamaVisionLicense(ai);
     res = await runVision();
-    text = typeof res === "string" ? res : res.response ?? JSON.stringify(res);
+    text = workersAiOutputToText(res);
     if (isLlamaVisionLicenseGate(text)) {
       throw new Error("Workers AI still requires Meta license acceptance after agree; check Cloudflare Workers AI.");
     }
   }
 
-  const jsonStr = extractJsonObject(text);
-  if (!jsonStr) {
-    throw new Error("Model did not return parseable JSON");
+  try {
+    return parseReceiptJsonFromModelText(text);
+  } catch (first) {
+    res = await runVision();
+    text = workersAiOutputToText(res);
+    try {
+      return parseReceiptJsonFromModelText(text);
+    } catch {
+      const msg = first instanceof Error ? first.message : String(first);
+      throw new Error(msg);
+    }
   }
-  const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-  return normalizeParsed(parsed);
 }
