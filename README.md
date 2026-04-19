@@ -55,39 +55,42 @@ Your app is almost certainly in **Testing** on the **OAuth consent screen**. In 
 
 ## Google OAuth: homepage, privacy, and “verified domain”
 
-Google’s [OAuth app verification user-facing homepage guidance](https://support.google.com/cloud/answer/10311615#home&zippy=%2Chomepage-requirements) requires:
+Official checklist: [OAuth app verification — homepage requirements](https://support.google.com/cloud/answer/10311615#home&zippy=%2Chomepage-requirements).
 
-- The **Application home page** accurately describes the app, explains **why** you request user data, and is **not**
-  only behind login.
-- A **visible link to your privacy policy** on that homepage, using the **exact same URL** as on the consent screen.
-- The homepage and privacy policy are on a **domain you can verify** in Search Console.
+### How this repo maps to Google’s checklist
 
-**`*.workers.dev` is a Cloudflare subdomain, not a domain you register as “yours” in DNS.** Google often rejects it for
-verification (“not registered to you”). For production OAuth verification, use a **custom domain** you control (for
-example `app.example.com`) on Cloudflare, attach it to your Worker, verify the property in **Google Search Console**,
-then set consent screen links to that host.
+| Google requirement | What to do |
+|--------------------|------------|
+| Represent brand and describe functionality | **`index.html`** includes a **public** block (before React) describing Scan &amp; Parse: capture, AI parse, edit, save, optional Sheet, duplicates. |
+| Explain why you request user data | Same block documents **Sign in with Google**, **Drive (`drive.file`)**, and **Sheets** purposes in plain language. |
+| **Verified domain you own** | **You must use a custom domain** (e.g. `https://receipts.yourdomain.com/`) on Cloudflare, verify it in **Google Search Console**. **`*.workers.dev` is usually rejected** (“not registered to you”) because you do not register that subdomain in DNS as your property. |
+| Not only third-party social hosts | Do not use Google Sites / Facebook / etc. as the only homepage. **Your Worker + your domain** is fine. |
+| **Privacy link on homepage**, same URL as consent screen | Homepage links to **`/privacy`**; set consent screen **Privacy policy** to **`https://&lt;your-domain&gt;/privacy`** (identical string). |
+| Visible **without login** | Public copy is in static HTML; **footer** always shows **Privacy** and **Terms**. Sign-in is only for the app below. |
+| **Responsive** URL | Ensure `GET https://<your-domain>/` returns **200** HTML quickly (no infinite client-only blank state for bots). |
+| **No redirect** to a **different domain** than consent screen | Homepage, privacy, and OAuth redirects should all stay on the **same** host you list on the consent screen. |
+| **No URL shorteners** | Use full `https://…` links, not `bit.ly` / etc. |
 
-To inject the Search Console **HTML tag** verification meta into the built homepage, set **`VITE_GOOGLE_SITE_VERIFICATION`**
-in `.env` (value = the `content` attribute only) before `npm run build` / your Workers Build.
-
-### Canonical URLs on your Worker (after deploy)
-
-The Worker serves **clean URLs** (recommended for consent screen):
+### Canonical URLs (use these on your verified host)
 
 | Page | Path |
 |------|------|
-| App (SPA) | `https://<host>/` |
-| Privacy policy | `https://<host>/privacy` |
-| Terms of service | `https://<host>/terms` |
+| Application home page | `https://<your-domain>/` |
+| Privacy policy | `https://<your-domain>/privacy` |
+| Terms of service | `https://<your-domain>/terms` |
 
-`/privacy.html` and `/terms.html` **redirect** to `/privacy` and `/terms`.
+`/privacy.html` and `/terms.html` redirect to **`/privacy`** and **`/terms`**.
 
-The built **`index.html`** includes a short **public** description of the app, why Google data is requested, and links
-to **Privacy** and **Terms** before React loads (so crawlers and reviewers see them without signing in). The sign-in
-screen repeats the same policy links.
+### Search Console HTML tag (build-time)
 
-In **OAuth consent screen**, set **Application home page**, **Privacy policy link**, and **Terms of service link** to
-the **same** `https://<your-verified-host>/…` values (no mismatch with `.html` unless you use that everywhere).
+Set **`VITE_GOOGLE_SITE_VERIFICATION`** in `.env` (content value only) before `npm run build` / Workers Build so the
+meta tag is injected into `index.html`.
+
+### After you add a custom domain
+
+1. Cloudflare: add **Custom domain** to the Worker; wait for **Active**.
+2. Search Console: **URL prefix** `https://your-domain/` → **HTML tag** method → copy `content` → `.env` as above → rebuild/deploy.
+3. OAuth consent screen: **Application home page** = `https://your-domain/`, **Privacy policy** = `https://your-domain/privacy`, same for **Authorized JavaScript origins** and **redirect URI** `https://your-domain/api/auth/callback`.
 
 ## Google Cloud setup
 
