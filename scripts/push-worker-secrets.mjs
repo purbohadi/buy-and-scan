@@ -4,7 +4,7 @@
  *   production             → --env production (scan-and-parse-production)
  *
  * Always (when non-empty): AUTH_SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
- * Optional AI keys (when non-empty): OPENROUTER_API_KEY, OPENAI_API_KEY
+ * Optional AI keys (when non-empty): OPENROUTER_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY
  *
  * Usage: dotenv -e .env -- node scripts/push-worker-secrets.mjs
  */
@@ -47,7 +47,8 @@ const KEYS = [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
   "OPENROUTER_API_KEY",
-  "OPENAI_API_KEY"
+  "OPENAI_API_KEY",
+  "GEMINI_API_KEY"
 ];
 
 if (!existsSync(envPath)) {
@@ -85,7 +86,7 @@ for (const key of KEYS) {
 
 if (pushed === 0) {
   console.error(
-    "No secrets pushed — set at least one of: AUTH_SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OPENROUTER_API_KEY, OPENAI_API_KEY in .env"
+    "No secrets pushed — set at least one of: AUTH_SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OPENROUTER_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY in .env"
   );
   process.exit(1);
 }
