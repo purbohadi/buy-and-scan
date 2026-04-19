@@ -23,7 +23,7 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 
 **Secrets (optional):** `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, **`GEMINI_API_KEY`** (recommended if Workers AI returns empty JSON on your receipts).  
 **Optional vars:** `RECEIPT_VISION_MODEL`, `OPENAI_BASE_URL`, `OPENROUTER_BASE_URL`, **`GOOGLE_GEMINI_MODEL`**.  
-`RECEIPT_VISION_MODEL`: bare ids like `gpt-4o-mini` are sent to OpenAI as-is and to OpenRouter as `openai/gpt-4o-mini`. Values with a `/` (e.g. `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`) are used as-is on OpenRouter; on OpenAI fallback, only `openai/…` is mapped to the suffix; other provider prefixes fall back to the default OpenAI model.
+`RECEIPT_VISION_MODEL`: bare ids like `gpt-4o-mini` are sent to OpenAI as-is and to OpenRouter as `openai/gpt-4o-mini`. Values with a `/` (e.g. `google/gemini-2.5-flash`, `openai/gpt-4o`) are used as-is on OpenRouter. OpenRouter default in code when unset: **`google/gemini-2.5-flash`**. On OpenAI fallback, only `openai/…` is mapped to the suffix; other prefixes fall back to the default OpenAI model.
 
 **Important:** Putting keys only in **`.env` on your laptop** does **not** give them to the **deployed** Worker. For production/dev on Cloudflare, set **`OPENROUTER_API_KEY`**, **`OPENAI_API_KEY`**, and/or **`GEMINI_API_KEY`** as **Worker secrets** (dashboard **Variables and Secrets**, or `npm run secrets` / `wrangler secret put`). Without external keys, only **Workers AI** runs last (Llama vision can return empty JSON on some receipts).
 
@@ -296,6 +296,8 @@ Quick OpenRouter smoke test:
 ```bash
 node --env-file=.env scripts/test-openrouter-receipt.mjs
 node --env-file=.env scripts/test-openrouter-receipt.mjs ./path/to/receipt.jpg
+# Optional third arg overrides model (default: google/gemini-2.5-flash)
+node --env-file=.env scripts/test-openrouter-receipt.mjs ./receipt.jpg anthropic/claude-3.5-sonnet
 ```
 
 `AUTH_SESSION_SECRET` is used both to sign session cookies and to encrypt Google refresh tokens at rest in D1.

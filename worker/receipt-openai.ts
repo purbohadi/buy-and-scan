@@ -9,7 +9,7 @@ import type { ParsedReceipt } from "./types";
 const DEFAULT_OPENAI_BASE = "https://api.openai.com/v1";
 const DEFAULT_OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
-const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";
+const DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash";
 
 function resolveVisionModel(mode: ExternalProvider, configured: string | undefined): string {
   const raw = configured?.trim();
