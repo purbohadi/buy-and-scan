@@ -84,6 +84,22 @@ function extFromMime(mime: string): string {
   return "jpg";
 }
 
+const MIN_IMAGE_BYTES = 400;
+
+function assertUsableImage(bytes: Uint8Array, mime: string): void {
+  if (bytes.byteLength < MIN_IMAGE_BYTES) {
+    throw new Error(
+      `Image is too small (${bytes.byteLength} bytes). Try a full-resolution photo (JPEG/PNG), not a tiny icon.`
+    );
+  }
+  const m = mime.toLowerCase();
+  if (m.includes("heic") || m.includes("heif")) {
+    throw new Error(
+      "HEIC/HEIF is not supported. On iPhone: Settings → Camera → Formats → Most Compatible, or export the photo as JPEG before uploading."
+    );
+  }
+}
+
 async function readBodyImage(request: Request): Promise<{ bytes: Uint8Array; mime: string }> {
   const ct = request.headers.get("Content-Type") ?? "";
   if (ct.includes("multipart/form-data")) {
@@ -92,7 +108,10 @@ async function readBodyImage(request: Request): Promise<{ bytes: Uint8Array; mim
     if (file && typeof file === "object" && "arrayBuffer" in file) {
       const blob = file as Blob;
       const ab = await blob.arrayBuffer();
-      return { bytes: new Uint8Array(ab), mime: blob.type || "image/jpeg" };
+      const bytes = new Uint8Array(ab);
+      const mime = blob.type || "image/jpeg";
+      assertUsableImage(bytes, mime);
+      return { bytes, mime };
     }
     throw new Error('Expected multipart field "image"');
   }
@@ -102,6 +121,7 @@ async function readBodyImage(request: Request): Promise<{ bytes: Uint8Array; mim
   const raw = atob(body.imageBase64);
   const bytes = new Uint8Array(raw.length);
   for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  assertUsableImage(bytes, mime);
   return { bytes, mime };
 }
 
@@ -379,6 +399,7 @@ export default {
         const raw = atob(body.imageBase64);
         const bytes = new Uint8Array(raw.length);
         for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+        assertUsableImage(bytes, body.imageMime ?? "image/jpeg");
 
         const hash = await sha256Hex(bytes);
         if (hash !== body.contentHash) {

@@ -8,7 +8,7 @@ Progressive web app for scanning receipts with your phone camera, parsing them w
 - **Google Drive + Sheets (per user)**: OAuth includes `drive.file` and `spreadsheets`. On first sign-in, if Google returns a **refresh token**, the Worker creates a new spreadsheet in the user’s Drive, writes a header row on tab **Receipts**, and stores the spreadsheet id (refresh token is **encrypted** with `AUTH_SESSION_SECRET` in D1). Each approved receipt appends a row via the **Sheets API**.
 - **Reconnect Drive/Sheets**: If Google did not return a refresh token on first login (common for returning Google users), use **Connect Google Drive & Sheet** so Google shows **consent** again and issues a refresh token.
 - PWA installable on your home screen; camera capture via file input (`capture="environment"`).
-- **Parse** uploads the image once; the Worker hashes the bytes (SHA-256) for duplicate detection (per user).
+- **Parse** uploads the image once; the Worker hashes the bytes (SHA-256) for duplicate detection (per user). Use **JPEG or PNG** at normal camera resolution; **HEIC/HEIF is rejected** (iPhone: Settings → Camera → Formats → **Most Compatible**, or convert before upload). If the vision model returns an empty `{}`-style result, the Worker treats it as a failed step and tries the next provider (or returns a **400** with a clear error if all fail).
 - **Duplicate guard**: `409` on submit until “Confirm duplicate” if the same image was already stored for that user.
 - **Receipt AI (vision / “OCR”)**: fixed order — **OpenRouter** (if `OPENROUTER_API_KEY` is set), else **OpenAI** (if `OPENAI_API_KEY` is set), else **Cloudflare Workers AI** (Llama 3.2 Vision). Each step is tried on failure until one succeeds (`worker/receipt-parse-chain.ts`).
 
