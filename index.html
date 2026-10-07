@@ -12,6 +12,16 @@
     />
     <title>Scan &amp; Parse by Talktomydoc — Receipt scanner</title>
     <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        min-height: 100dvh;
+        margin: 0;
+      }
+      body #root {
+        flex: 1;
+        min-height: 0;
+      }
       /* Public homepage copy for OAuth verification; hidden after React mounts (same origin, same app). */
       #preboot-home {
         max-width: 46rem;
