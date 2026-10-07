@@ -8,10 +8,20 @@
     <meta name="theme-color" content="#0f172a" />
     <meta
       name="description"
-      content="Scan & Parse: photograph receipts, parse with AI, edit and approve, store in your account and sync to Google Sheets. Sign-in uses Google for identity; optional Google Drive access creates your receipt spreadsheet."
+      content="Scan & Parse by Talktomydoc: capture receipts, review AI-extracted details, and save expense records with optional Google Sheets sync. Built by Purbohadi Utomo in Indonesia."
     />
-    <title>Scan &amp; Parse — Receipt scanner</title>
+    <title>Scan &amp; Parse by Talktomydoc — Receipt scanner</title>
     <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        min-height: 100dvh;
+        margin: 0;
+      }
+      body #root {
+        flex: 1;
+        min-height: 0;
+      }
       /* Public homepage copy for OAuth verification; hidden after React mounts (same origin, same app). */
       #preboot-home {
         max-width: 46rem;
@@ -83,10 +93,54 @@
         color: #38bdf8;
         font-weight: 600;
       }
+      /* Company information stays visible before and after React mounts. */
+      #about-talktomydoc {
+        width: calc(100% - 2rem);
+        max-width: 888px;
+        margin: 0 auto;
+        padding: 1.1rem;
+        box-sizing: border-box;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        font-family: system-ui, -apple-system, sans-serif;
+        line-height: 1.55;
+        color: #cbd5e1;
+        background: #0f172a;
+        scroll-margin-top: 1rem;
+      }
+      #about-talktomydoc h2 {
+        margin: 0 0 0.6rem;
+        font-size: 1.05rem;
+        color: #f1f5f9;
+      }
+      #about-talktomydoc p {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+      #about-talktomydoc dl {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+        gap: 0.75rem 1rem;
+        margin: 1rem 0 0;
+      }
+      #about-talktomydoc dt {
+        font-size: 0.8rem;
+        color: #94a3b8;
+      }
+      #about-talktomydoc dd {
+        margin: 0;
+        font-size: 0.95rem;
+        overflow-wrap: anywhere;
+      }
+      #about-talktomydoc a {
+        color: #38bdf8;
+      }
     </style>
   </head>
   <body>
-    <nav id="site-legal-links" aria-label="Legal">
+    <nav id="site-legal-links" aria-label="About and legal information">
+      <a href="#about-talktomydoc">About &amp; contact</a>
+      <span style="color: #64748b" aria-hidden="true"> · </span>
       <a href="/privacy" rel="privacy-policy">Privacy policy</a>
       <span style="color: #64748b"> · </span>
       <a href="/terms" rel="terms-of-service">Terms of service</a>
@@ -94,6 +148,7 @@
     <main id="preboot-home">
       <h1>Scan &amp; Parse</h1>
       <p class="tagline">Receipt capture, AI-assisted parsing, review, and optional sync to your Google Sheet.</p>
+      <p>A product of <a href="#about-talktomydoc">Talktomydoc</a>, built by Purbohadi Utomo in Indonesia.</p>
 
       <h2>What this app does</h2>
       <p>
@@ -149,6 +204,27 @@
       </p>
     </main>
     <div id="root"></div>
+    <section id="about-talktomydoc" aria-labelledby="about-talktomydoc-heading">
+      <h2 id="about-talktomydoc-heading">About Talktomydoc</h2>
+      <p>
+        <strong>Scan &amp; Parse</strong> is a product of <strong>Talktomydoc</strong>. We build software that turns
+        receipt photos into structured records you can review, save, and sync to your Google Sheet.
+      </p>
+      <dl>
+        <div>
+          <dt>Founder</dt>
+          <dd>Purbohadi Utomo</dd>
+        </div>
+        <div>
+          <dt>Based in</dt>
+          <dd>Indonesia</dd>
+        </div>
+        <div>
+          <dt>Contact</dt>
+          <dd><a href="mailto:purbo@talktomydoc.xyz">purbo@talktomydoc.xyz</a></dd>
+        </div>
+      </dl>
+    </section>
     <footer
       style="
         max-width: 920px;
@@ -159,6 +235,10 @@
         font-family: system-ui, sans-serif;
       "
     >
+      <span>Talktomydoc</span>
+      <span aria-hidden="true"> · </span>
+      <a href="#about-talktomydoc" style="color: #38bdf8">About &amp; contact</a>
+      <span aria-hidden="true"> · </span>
       <a href="/privacy" rel="privacy-policy" style="color: #38bdf8">Privacy policy</a>
       <span aria-hidden="true"> · </span>
       <a href="/terms" rel="terms-of-service" style="color: #38bdf8">Terms of service</a>
