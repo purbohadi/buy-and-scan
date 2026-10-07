@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "account_id": "48c90ea0b2cc8cf20170e728946a9cac",
-  "name": "scan-and-parse",
+  "name": "scan-and-parse-production",
   "main": "worker/index.ts",
   "compatibility_date": "2026-04-18",
   "compatibility_flags": ["nodejs_compat"],
