@@ -8,32 +8,29 @@
       content="Privacy policy for Scan & Parse: how we handle receipt data, Google sign-in, and optional Google Sheets sync."
     />
     <title>Privacy Policy — Scan &amp; Parse</title>
+    <script>
+      try {
+        const theme = localStorage.getItem('scan-parse-theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
     <style>
-      body {
-        font-family: system-ui, -apple-system, Segoe UI, sans-serif;
-        line-height: 1.55;
-        max-width: 42rem;
-        margin: 0 auto;
-        padding: 1.5rem;
-        color: #e2e8f0;
-        background: #0f172a;
-      }
-      a {
-        color: #38bdf8;
-      }
-      h1 {
-        font-size: 1.35rem;
-      }
-      h2 {
-        font-size: 1.05rem;
-        margin-top: 1.75rem;
-      }
+      :root { color-scheme: light; --page: #f5f6f2; --text: #172820; --link: #225b43; --line: #d8ded8; }
+      :root[data-theme='dark'] { color-scheme: dark; --page: #101813; --text: #eaf0e9; --link: #b5dabb; --line: #344139; }
+      @media (prefers-color-scheme: dark) { :root:not([data-theme='light']) { color-scheme: dark; --page: #101813; --text: #eaf0e9; --link: #b5dabb; --line: #344139; } }
+      html { background: var(--page); }
+      body { font-family: system-ui, sans-serif; line-height: 1.75; max-width: 44rem; margin: 0 auto; padding: 2.5rem 1.5rem; color: var(--text); }
+      a { color: var(--link); text-underline-offset: 3px; }
+      h1 { font-size: 1.8rem; letter-spacing: -.035em; line-height: 1.2; }
+      h2 { font-size: 1.1rem; margin-top: 2rem; letter-spacing: -.015em; }
+      :focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
+      main > p:last-child { border-top: 1px solid var(--line); padding-top: 1.5rem; margin-top: 2rem; }
     </style>
   </head>
   <body>
     <main id="privacy-policy-document">
       <h1>Privacy Policy</h1>
-      <p><strong>Scan &amp; Parse by Talktomydoc</strong> — Last updated: October 7, 2026</p>
+      <p><strong>Scan &amp; Parse by Talktomydocument</strong> — Last updated: October 7, 2026</p>
       <p>
         This page is the dedicated privacy policy for the Scan &amp; Parse web application (“the App”). This policy is
         provided as HTML text on this page only (not a PDF or embedded document).
@@ -45,9 +42,9 @@
 
       <h2>Who operates the App</h2>
       <p>
-        Scan &amp; Parse is a product of <strong>Talktomydoc</strong>, operated by <strong>Purbohadi Utomo</strong>
+        Scan &amp; Parse is a product of <strong>Talktomydocument</strong>, operated by <strong>Purbohadi Utomo</strong>
         in <strong>Indonesia</strong>. You can contact us at
-        <a href="mailto:purbo@talktomydoc.xyz">purbo@talktomydoc.xyz</a>.
+        <a href="mailto:purbo@talktomydocument.com">purbo@talktomydocument.com</a>.
       </p>
 
       <h2>Information we process</h2>
@@ -88,8 +85,8 @@
       <h2>Retention and deletion</h2>
       <p>
         Receipt images and saved records are stored for your account in the App's database and object storage.
-        To request deletion of data associated with your account, contact Talktomydoc at
-        <a href="mailto:purbo@talktomydoc.xyz">purbo@talktomydoc.xyz</a>.
+        To request deletion of data associated with your account, contact Talktomydocument at
+        <a href="mailto:purbo@talktomydocument.com">purbo@talktomydocument.com</a>.
       </p>
 
       <h2>Security</h2>
@@ -109,8 +106,8 @@
 
       <h2>Contact</h2>
       <p>
-        For questions about this policy, contact Purbohadi Utomo at Talktomydoc:
-        <a href="mailto:purbo@talktomydoc.xyz">purbo@talktomydoc.xyz</a>.
+        For questions about this policy, contact Purbohadi Utomo at Talktomydocument:
+        <a href="mailto:purbo@talktomydocument.com">purbo@talktomydocument.com</a>.
       </p>
       <p><a href="/">App home</a> · <a href="/#about-talktomydoc">About &amp; contact</a> · <a href="/privacy">Privacy policy</a> · <a href="/terms">Terms of service</a></p>
     </main>
