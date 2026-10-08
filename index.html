@@ -2,15 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="google-site-verification" content="DogDwgLfEd8spZ5WrhIh50FcV0lYmH7k9pQyioUMe4A" />
+    <meta
+      name="google-site-verification"
+      content="DogDwgLfEd8spZ5WrhIh50FcV0lYmH7k9pQyioUMe4A"
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#225b43" />
     <meta
       name="description"
-      content="Scan & Parse by Talktomydoc: capture receipts, review AI-extracted details, and save expense records with optional Google Sheets sync. Built by Purbohadi Utomo in Indonesia."
+      content="Scan &amp; Parse by Talktomydocument: capture receipts, review AI-extracted details, and save expense records with optional Google Sheets sync. Built by Purbohadi Utomo in Indonesia."
     />
-    <title>Scan &amp; Parse by Talktomydoc — Receipt scanner</title>
+    <title>Scan &amp; Parse by Talktomydocument | Receipt workspace</title>
+    <script>
+      try {
+        const theme = localStorage.getItem('scan-parse-theme');
+        if (theme === 'light' || theme === 'dark')
+          document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
     <style>
       body {
         display: flex;
@@ -22,174 +35,123 @@
         flex: 1;
         min-height: 0;
       }
-      /* Public homepage copy for OAuth verification; hidden after React mounts (same origin, same app). */
       #preboot-home {
-        max-width: 46rem;
+        width: min(100% - 2rem, 48rem);
         margin: 0 auto;
-        padding: 1.25rem 1rem 0.5rem;
-        font-family: system-ui, -apple-system, sans-serif;
-        line-height: 1.55;
-        color: #e2e8f0;
-        background: #020617;
+        padding: 2rem 0;
+        font-family: 'Geist', system-ui, sans-serif;
+        line-height: 1.65;
+        color: var(--text, #172820);
       }
       #preboot-home h1 {
-        font-size: 1.4rem;
-        margin: 0 0 0.35rem;
-        letter-spacing: -0.02em;
-      }
-      #preboot-home .tagline {
-        margin: 0 0 1rem;
-        color: #94a3b8;
-        font-size: 0.95rem;
+        font-size: 1.6rem;
+        margin: 0 0 0.5rem;
       }
       #preboot-home h2 {
-        font-size: 1.05rem;
-        margin: 1.25rem 0 0.4rem;
-        color: #f1f5f9;
+        font-size: 1.08rem;
+        margin: 1.5rem 0 0.5rem;
       }
       #preboot-home p,
       #preboot-home li {
-        margin: 0 0 0.6rem;
-        color: #cbd5e1;
-        font-size: 0.95rem;
+        margin: 0 0 0.7rem;
+        font-size: 0.94rem;
+        color: var(--muted, #54625b);
       }
       #preboot-home ul {
-        margin: 0 0 0.75rem;
         padding-left: 1.25rem;
       }
       #preboot-home a {
-        color: #38bdf8;
+        color: var(--brand, #225b43);
       }
       #preboot-home .policy-callout {
-        margin: 1rem 0;
-        padding: 0.75rem 1rem;
-        border-radius: 10px;
-        border: 1px solid rgba(56, 189, 248, 0.35);
-        background: rgba(15, 23, 42, 0.85);
+        padding: 1rem;
+        margin: 1.5rem 0;
+        border: 1px solid var(--line, #d8ded8);
+        border-radius: 8px;
       }
-      #preboot-home .policy-callout strong {
-        color: #f8fafc;
-      }
-      /* Do not hide #preboot-home — Google verification crawlers may only see post-JS DOM.
-         Instead collapse it visually after the app loads so privacy links stay in document. */
+      /* Retain public OAuth verification copy in the DOM after the app mounts. */
       body.app-ready #preboot-home {
         max-height: 0;
         overflow: hidden;
-        padding: 0 1rem;
+        padding: 0;
         margin: 0;
         opacity: 0;
         pointer-events: none;
       }
-      /* Always visible on every URL load — satisfies "homepage includes link to privacy policy" after hydration. */
-      #site-legal-links {
-        font-family: system-ui, -apple-system, sans-serif;
-        font-size: 0.88rem;
-        padding: 0.5rem 1rem;
-        text-align: center;
-        background: #0f172a;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-      }
-      #site-legal-links a {
-        color: #38bdf8;
-        font-weight: 600;
-      }
-      /* Company information stays visible before and after React mounts. */
-      #about-talktomydoc {
-        width: calc(100% - 2rem);
-        max-width: 888px;
-        margin: 0 auto;
-        padding: 1.1rem;
-        box-sizing: border-box;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 14px;
-        font-family: system-ui, -apple-system, sans-serif;
-        line-height: 1.55;
-        color: #cbd5e1;
-        background: #0f172a;
-        scroll-margin-top: 1rem;
-      }
-      #about-talktomydoc h2 {
-        margin: 0 0 0.6rem;
-        font-size: 1.05rem;
-        color: #f1f5f9;
-      }
-      #about-talktomydoc p {
-        margin: 0;
-        font-size: 0.95rem;
-      }
-      #about-talktomydoc dl {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-        gap: 0.75rem 1rem;
-        margin: 1rem 0 0;
-      }
-      #about-talktomydoc dt {
-        font-size: 0.8rem;
-        color: #94a3b8;
-      }
-      #about-talktomydoc dd {
-        margin: 0;
-        font-size: 0.95rem;
-        overflow-wrap: anywhere;
-      }
-      #about-talktomydoc a {
-        color: #38bdf8;
-      }
     </style>
   </head>
   <body>
-    <nav id="site-legal-links" aria-label="About and legal information">
-      <a href="#about-talktomydoc">About &amp; contact</a>
-      <span style="color: #64748b" aria-hidden="true"> · </span>
-      <a href="/privacy" rel="privacy-policy">Privacy policy</a>
-      <span style="color: #64748b"> · </span>
-      <a href="/terms" rel="terms-of-service">Terms of service</a>
-    </nav>
     <main id="preboot-home">
       <h1>Scan &amp; Parse</h1>
-      <p class="tagline">Receipt capture, AI-assisted parsing, review, and optional sync to your Google Sheet.</p>
-      <p>A product of <a href="#about-talktomydoc">Talktomydoc</a>, built by Purbohadi Utomo in Indonesia.</p>
+      <p class="tagline">
+        Receipt capture, AI-assisted parsing, review, and optional sync to your
+        Google Sheet.
+      </p>
+      <p>
+        A product of <a href="#about-talktomydoc">Talktomydocument</a>, built by
+        Purbohadi Utomo in Indonesia.
+      </p>
 
       <h2>What this app does</h2>
       <p>
-        <strong>Scan &amp; Parse</strong> is a web application for people who want a digital record of paper receipts
-        (for example travel or business expenses). You use your phone or desktop browser to:
+        <strong>Scan &amp; Parse</strong> is a web application for people who
+        want a digital record of paper receipts (for example travel or business
+        expenses). You use your phone or desktop browser to:
       </p>
       <ul>
-        <li><strong>Capture</strong> — Take or upload a photo of a receipt.</li>
-        <li><strong>Parse</strong> — Optional machine-learning vision suggests merchant name, date, currency, line
-          items, and totals (you should always review for accuracy).</li>
-        <li><strong>Review &amp; edit</strong> — Change any field before saving.</li>
-        <li><strong>Save</strong> — Approved data can be stored in a database under your account; receipt images can be
-          stored in object storage.</li>
-        <li><strong>Optional Google Sheet</strong> — If you connect Google Drive/Sheets, the app can create a
-          spreadsheet in <em>your</em> Google Drive and append one row per saved receipt.</li>
-        <li><strong>Duplicate awareness</strong> — The app can warn when the same receipt image was saved before (by
-          image fingerprint).</li>
+        <li><strong>Capture</strong>: Take or upload a photo of a receipt.</li>
+        <li>
+          <strong>Parse</strong>: Optional machine-learning vision suggests
+          merchant name, date, currency, line items, and totals (you should
+          always review for accuracy).
+        </li>
+        <li>
+          <strong>Review &amp; edit</strong>: Change any field before saving.
+        </li>
+        <li>
+          <strong>Save</strong>: Approved data can be stored in a database under
+          your account; receipt images can be stored in object storage.
+        </li>
+        <li>
+          <strong>Optional Google Sheet</strong>: If you connect Google
+          Drive/Sheets, the app can create a spreadsheet in <em>your</em> Google
+          Drive and append one row per saved receipt.
+        </li>
+        <li>
+          <strong>Duplicate awareness</strong>: The app can warn when the same
+          receipt image was saved before (by image fingerprint).
+        </li>
       </ul>
 
       <h2>Why we request Google user data (transparency)</h2>
-      <p>We only use Google permissions for the purposes below. We do not sell your personal information.</p>
+      <p>
+        We only use Google permissions for the purposes below. We do not sell
+        your personal information.
+      </p>
       <ul>
         <li>
-          <strong>Sign in with Google (OpenID, email, profile)</strong> — To prove who you are, show your email in the
-          app, and keep your saved receipts and files scoped to your Google account id. We issue an encrypted session
-          cookie; we do not receive your Google password.
+          <strong>Sign in with Google (OpenID, email, profile)</strong>: To
+          prove who you are, show your email in the app, and keep your saved
+          receipts and files scoped to your Google account id. We issue an
+          encrypted session cookie; we do not receive your Google password.
         </li>
         <li>
-          <strong>Google Drive (limited: <code>drive.file</code>)</strong> — Only to create and update files
-          <em>this application creates</em> in your Drive (for example your receipt spreadsheet). We do not request
-          broad access to your entire Drive.
+          <strong>Google Drive (limited: <code>drive.file</code>)</strong>: Only
+          to create and update files <em>this application creates</em> in your
+          Drive (for example your receipt spreadsheet). We do not request broad
+          access to your entire Drive.
         </li>
         <li>
-          <strong>Google Sheets</strong> — To read and write the spreadsheet we created so your approved receipt rows
-          and links appear where you expect.
+          <strong>Google Sheets</strong>: To read and write the spreadsheet we
+          created so your approved receipt rows and links appear where you
+          expect.
         </li>
       </ul>
 
       <div class="policy-callout">
         <p style="margin: 0 0 0.5rem">
-          <strong>Privacy policy</strong> — Use the same URL here and on your Google Cloud OAuth consent screen:
+          <strong>Privacy policy</strong>: Use the same URL here and on your
+          Google Cloud OAuth consent screen:
         </p>
         <p style="margin: 0">
           <a href="/privacy" rel="privacy-policy">Open privacy policy</a>
@@ -199,49 +161,58 @@
       </div>
 
       <p>
-        <strong>No login is required to read this page.</strong> The interactive app loads below; signing in is only
-        needed to use capture, parse, and save features. The footer on every screen also links to the privacy policy.
+        <strong>No login is required to read this page.</strong> The interactive
+        app loads below; signing in is only needed to use capture, parse, and
+        save features. The footer on every screen also links to the privacy
+        policy.
       </p>
     </main>
     <div id="root"></div>
-    <section id="about-talktomydoc" aria-labelledby="about-talktomydoc-heading">
-      <h2 id="about-talktomydoc-heading">About Talktomydoc</h2>
-      <p>
-        <strong>Scan &amp; Parse</strong> is a product of <strong>Talktomydoc</strong>. We build software that turns
-        receipt photos into structured records you can review, save, and sync to your Google Sheet.
-      </p>
-      <dl>
+    <footer class="public-company-footer">
+      <section
+        id="about-talktomydoc"
+        aria-labelledby="about-talktomydoc-heading"
+      >
         <div>
-          <dt>Founder</dt>
-          <dd>Purbohadi Utomo</dd>
+          <h2 id="about-talktomydoc-heading">About Talktomydocument</h2>
+          <p>
+            <strong>Scan &amp; Parse</strong> is a product of
+            <a href="https://talktomydocument.com/">Talktomydocument</a>. We
+            build software that turns receipt photos into structured records you
+            can review, save, and sync to your Google Sheet.
+          </p>
         </div>
-        <div>
-          <dt>Based in</dt>
-          <dd>Indonesia</dd>
-        </div>
-        <div>
-          <dt>Contact</dt>
-          <dd><a href="mailto:purbo@talktomydoc.xyz">purbo@talktomydoc.xyz</a></dd>
-        </div>
-      </dl>
-    </section>
-    <footer
-      style="
-        max-width: 920px;
-        margin: 0 auto;
-        padding: 0.75rem 1rem 1.25rem;
-        font-size: 0.85rem;
-        color: #94a3b8;
-        font-family: system-ui, sans-serif;
-      "
-    >
-      <span>Talktomydoc</span>
-      <span aria-hidden="true"> · </span>
-      <a href="#about-talktomydoc" style="color: #38bdf8">About &amp; contact</a>
-      <span aria-hidden="true"> · </span>
-      <a href="/privacy" rel="privacy-policy" style="color: #38bdf8">Privacy policy</a>
-      <span aria-hidden="true"> · </span>
-      <a href="/terms" rel="terms-of-service" style="color: #38bdf8">Terms of service</a>
+        <dl>
+          <div>
+            <dt>Founder</dt>
+            <dd>Purbohadi Utomo</dd>
+          </div>
+          <div>
+            <dt>Based in</dt>
+            <dd>Indonesia</dd>
+          </div>
+          <div>
+            <dt>AI product launched</dt>
+            <dd>April 2025</dd>
+          </div>
+          <div>
+            <dt>Contact</dt>
+            <dd>
+              <a href="mailto:purbo@talktomydocument.com"
+                >purbo@talktomydocument.com</a
+              >
+            </dd>
+          </div>
+        </dl>
+      </section>
+      <div class="footer-bottom">
+        <span>Scan &amp; Parse by Talktomydocument</span>
+        <nav id="site-legal-links" aria-label="About and legal information">
+          <a href="#about-talktomydoc">About &amp; contact</a>
+          <a href="/privacy" rel="privacy-policy">Privacy policy</a>
+          <a href="/terms" rel="terms-of-service">Terms of service</a>
+        </nav>
+      </div>
     </footer>
     <script type="module" src="/src/main.tsx"></script>
   </body>

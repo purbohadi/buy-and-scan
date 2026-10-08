@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "types": ["node", "jest"],
+    "isolatedModules": false
+  },
+  "include": ["src", "shared", "test/**/*.test.tsx"]
+}

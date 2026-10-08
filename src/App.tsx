@@ -2,7 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { normalizeDiscountItemName } from '../shared/discount-label';
 import { sanitizeMoneyAmount, sanitizeReceiptMoney } from '../shared/money';
 import { sha256Hex } from './hash';
-import { MoneyField } from './MoneyField';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  CheckCircle,
+  GoogleLogo,
+  LinkSimple,
+  WarningCircle,
+} from '@phosphor-icons/react';
+import { AppHeader } from './AppHeader';
+import { ReceiptCapture } from './ReceiptCapture';
+import { ReceiptReview } from './ReceiptReview';
 import { ReceiptsList } from './ReceiptsList';
 import { Spinner } from './Spinner';
 import type {
@@ -93,6 +103,7 @@ export default function App() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<LoadingAction>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [parseFailed, setParseFailed] = useState(false);
   const [parseResult, setParseResult] = useState<ParseResponse | null>(null);
   const [receipt, setReceipt] = useState<ParsedReceipt | null>(null);
   const [contentHash, setContentHash] = useState<string | null>(null);
@@ -132,6 +143,7 @@ export default function App() {
   }, []);
 
   const resetFlow = useCallback(() => {
+    setParseFailed(false);
     setParseResult(null);
     setReceipt(null);
     setContentHash(null);
@@ -184,6 +196,11 @@ export default function App() {
   }, [file]);
 
   const onPickFile = (f: File | null) => {
+    if (f && f.type && !f.type.startsWith('image/')) {
+      setError('Choose a receipt image. JPEG or PNG works best.');
+      return false;
+    }
+    setParseFailed(false);
     setError(null);
     setLastSubmit(null);
     setParseResult(null);
@@ -191,11 +208,13 @@ export default function App() {
     setContentHash(null);
     setConfirmDuplicate(false);
     setFile(f);
+    return true;
   };
 
   const parseImage = async () => {
     if (!file) return;
     setLoading('parse');
+    setParseFailed(false);
     setError(null);
     setLastSubmit(null);
     try {
@@ -214,6 +233,7 @@ export default function App() {
       setConfirmDuplicate(false);
       setTotalReceipts(data.totalReceipts);
     } catch (e) {
+      setParseFailed(true);
       setError(e instanceof Error ? e.message : 'Parse failed');
     } finally {
       setLoading('idle');
@@ -380,555 +400,346 @@ export default function App() {
   const signedIn = Boolean(auth?.user);
   const authReady = auth !== null;
   const isBusy = loading !== 'idle';
-  const parseFailedShowUpload = Boolean(error && file && !receipt);
+  const parseFailedShowUpload = Boolean(parseFailed && file && !receipt);
   const uploadOnlyInputRef = useRef<HTMLInputElement>(null);
+  const canScan = signedIn && Boolean(auth?.googleLinked);
+  const sheetSyncFailed = lastSubmit?.ok && lastSubmit.sheetsAppended === false;
 
-  if (authReady && auth.authConfigured && !signedIn) {
-    return (
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '2rem 1rem' }}>
-        <div className="card stack">
-          <h1 style={{ margin: 0, fontSize: '1.35rem' }}>Scan &amp; Parse</h1>
-          <p
-            className="muted"
-            style={{ margin: 0 }}>
-            Photograph receipts, review AI-parsed line items and totals, then
-            save and optionally sync to a Google Sheet in <strong>your</strong>{' '}
-            Drive after you connect Google. Sign-in identifies your account; we
-            do not use your Google password.
-          </p>
-          {error ? (
-            <div
-              className="badge warn"
-              role="alert">
-              {error}
-            </div>
-          ) : null}
-          <a
-            className="btn"
-            href="/api/auth/login"
-            style={{ textDecoration: 'none' }}>
-            Continue with Google
-          </a>
-          <p
-            className="muted"
-            style={{ margin: 0, fontSize: '0.85rem' }}>
-            <a href="/privacy">Privacy policy</a>
-            {' · '}
-            <a href="/terms">Terms of service</a>
-            {' — same links as on the OAuth consent screen.'}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const showReceipts = () => setMainTab('receipts');
 
   return (
-    <div
-      style={{ maxWidth: 920, margin: '0 auto', padding: '1rem 1rem 2.5rem' }}>
-      <header
-        className="row"
-        style={{ justifyContent: 'space-between', marginBottom: '1rem' }}>
-        <div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: '1.35rem',
-              letterSpacing: '-0.02em',
-            }}>
-            Scan & Parse
-          </h1>
-          <p
-            className="muted"
-            style={{ margin: '0.25rem 0 0' }}>
-            Scan Trip receipts: snap, review, approve, sync to your Google Sheet
-            in Drive.
-          </p>
-        </div>
-        <div
-          className="row"
-          style={{ gap: '0.5rem', justifyContent: 'flex-end' }}>
-          {auth?.user ? (
-            <span
-              className="badge"
-              title={auth.user.email}>
-              {auth.user.email ? auth.user.email.split('@')[0] : 'Signed in'}
-            </span>
-          ) : null}
-          {auth?.authConfigured === false ? (
-            <span
-              className="badge warn"
-              title="Set AUTH_SESSION_SECRET and Google OAuth vars on the Worker">
-              Auth off
-            </span>
-          ) : null}
-          {signedIn && auth?.googleLinked && auth.spreadsheetUrl ? (
-            <a
-              className={`btn btn-secondary ${isBusy ? 'pointer-events-none opacity-50' : ''}`}
-              href={auth.spreadsheetUrl}
-              target="_blank"
-              rel="noreferrer"
-              aria-disabled={isBusy}
-              onClick={(e) => {
-                if (isBusy) e.preventDefault();
-              }}>
-              Open sheet
-            </a>
-          ) : null}
-          {signedIn ? (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              disabled={isBusy}
-              onClick={() => void logout()}>
-              Sign out
-            </button>
-          ) : null}
-          <span
-            className="badge"
-            title="Receipts stored in D1 after approval">
-            Stored:{' '}
-            {!signedIn ? '—' : totalReceipts === null ? '…' : totalReceipts}
-          </span>
-        </div>
-      </header>
-
-      <div className="stack">
-        {signedIn ? (
-          <nav
-            className="row"
-            style={{ gap: '0.35rem', flexWrap: 'wrap' }}
-            aria-label="Main">
-            <button
-              type="button"
-              className={mainTab === 'scan' ? 'btn' : 'btn btn-secondary'}
-              disabled={isBusy}
-              onClick={() => setMainTab('scan')}>
-              Scan
-            </button>
-            <button
-              type="button"
-              className={mainTab === 'receipts' ? 'btn' : 'btn btn-secondary'}
-              disabled={isBusy}
-              onClick={() => setMainTab('receipts')}>
-              My receipts
-            </button>
-          </nav>
-        ) : null}
-
-        {signedIn && auth && !auth.googleLinked ? (
-          <section className="card stack">
-            <strong>Connect Google Drive &amp; Sheets</strong>
-            <p
-              className="muted"
-              style={{ margin: 0 }}>
-              Approve access so we can create a{' '}
-              <strong>Scan &amp; Parse</strong> spreadsheet in your Drive and
-              append each saved receipt. Google may ask you to confirm again so
-              we can keep access while you travel.
-            </p>
-            <button
-              type="button"
-              className="btn"
-              disabled={isBusy}
-              onClick={() => {
-                if (!isBusy) window.location.href = '/api/auth/link-google';
-              }}>
-              Connect Google Drive &amp; Sheet
-            </button>
-          </section>
-        ) : null}
-
-        {mainTab === 'scan' ? (
-          <>
-            {duplicateHint ? (
-              <div
-                className="badge warn"
-                role="status">
-                {duplicateHint}
+    <div className="app-shell">
+      <a className="skip-link" href="#workspace">
+        Skip to content
+      </a>
+      <AppHeader
+        signedIn={signedIn}
+        email={auth?.user?.email}
+        spreadsheetUrl={auth?.spreadsheetUrl}
+        googleLinked={auth?.googleLinked}
+        busy={isBusy}
+        activeTab={mainTab}
+        totalReceipts={totalReceipts}
+        onChangeTab={setMainTab}
+        onSignOut={() =>
+          void logout().catch(() =>
+            setError('Could not sign out. Please try again.'),
+          )
+        }
+      />
+      <main id="workspace" className="app-main" tabIndex={-1}>
+        {!authReady ? (
+          <div className="workspace-loading" role="status">
+            <span className="sr-only">Loading your workspace</span>
+            <div className="skeleton skeleton-title" aria-hidden="true" />
+            <div className="skeleton skeleton-subtitle" aria-hidden="true" />
+            <div className="workspace-grid" aria-hidden="true">
+              <div className="skeleton skeleton-capture" />
+              <div className="skeleton skeleton-review" />
+            </div>
+          </div>
+        ) : !signedIn ? (
+          <section className="sign-in-layout" aria-labelledby="sign-in-heading">
+            <div className="sign-in-story">
+              <span className="product-note">Receipt workspace</span>
+              <h1 id="sign-in-heading">
+                Less paper.
+                <br />
+                Clearer records.
+              </h1>
+              <p>
+                Turn receipt photos into details you can check, edit, and keep.
+                Your expenses, a little more organized.
+              </p>
+              <ol className="sign-in-steps">
+                <li>
+                  <span>01</span>
+                  <div>
+                    <strong>Capture a receipt</strong>
+                    <p>Take a photo or choose one from your device.</p>
+                  </div>
+                </li>
+                <li>
+                  <span>02</span>
+                  <div>
+                    <strong>Review the AI results</strong>
+                    <p>Check the vendor, line items, currency, and total.</p>
+                  </div>
+                </li>
+                <li>
+                  <span>03</span>
+                  <div>
+                    <strong>Save your approved record</strong>
+                    <p>
+                      Keep the image and optionally sync to your Google Sheet.
+                    </p>
+                  </div>
+                </li>
+              </ol>
+            </div>
+            <div className="sign-in-panel">
+              <h2>Your receipt workspace</h2>
+              <p>Sign in to capture, parse, and save your receipts.</p>
+              {error ? (
+                <div className="notice notice-warning" role="alert">
+                  <WarningCircle size={20} aria-hidden="true" />
+                  <p>{error}</p>
+                </div>
+              ) : null}
+              {auth.authConfigured ? (
+                <a className="btn btn-block" href="/api/auth/login">
+                  <GoogleLogo size={20} aria-hidden="true" /> Continue with
+                  Google <ArrowRight size={18} aria-hidden="true" />
+                </a>
+              ) : (
+                <div className="notice notice-warning" role="status">
+                  <WarningCircle size={20} aria-hidden="true" />
+                  <p>
+                    Sign-in is temporarily unavailable. Please try again later
+                    or{' '}
+                    <a href="mailto:purbo@talktomydocument.com">contact us</a>.
+                  </p>
+                </div>
+              )}
+              <p className="sign-in-privacy">
+                Sign-in identifies your account. We do not receive your Google
+                password. Google Drive and Sheets access is requested separately
+                when you connect them.
+              </p>
+              <div className="sign-in-legal">
+                <a href="/privacy">Privacy policy</a>
+                <a href="/terms">Terms of service</a>
               </div>
-            ) : null}
-
-            <section className="card stack">
-              <div
-                className="row"
-                style={{ justifyContent: 'space-between' }}>
-                <strong>1. Capture</strong>
+            </div>
+          </section>
+        ) : (
+          <>
+            <div className="workspace-heading">
+              <div>
+                <h1>
+                  {mainTab === 'scan'
+                    ? 'From receipt to record.'
+                    : 'My receipts'}
+                </h1>
+                <p>
+                  {mainTab === 'scan'
+                    ? 'Capture a photo, review the details, and save with confidence.'
+                    : 'Your saved receipts, newest first. Find a record or open the original image.'}
+                </p>
+              </div>
+              {mainTab === 'receipts' ? (
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => setMainTab('scan')}
+                >
+                  Scan a receipt <ArrowRight size={18} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+            {!auth.googleLinked ? (
+              <section
+                className="connection-notice"
+                aria-labelledby="connection-heading"
+              >
+                <span className="connection-icon">
+                  <LinkSimple size={23} aria-hidden="true" />
+                </span>
+                <div>
+                  <h2 id="connection-heading">
+                    Connect Google Drive &amp; Sheets
+                  </h2>
+                  <p>
+                    Finish setup to scan and save receipts. We create a Scan
+                    &amp; Parse spreadsheet in your Drive and append each
+                    approved record. Google may ask you to confirm access again
+                    so it remains available while you travel.
+                  </p>
+                </div>
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={resetFlow}
-                  disabled={isBusy}>
-                  Reset
-                </button>
-              </div>
-              {!signedIn && auth?.authConfigured ? (
-                <p
-                  className="muted"
-                  style={{ margin: 0 }}>
-                  Sign in to upload and parse receipts.
-                </p>
-              ) : null}
-              <p
-                className="muted"
-                style={{ margin: 0 }}>
-                Use your phone camera (install as PWA for a home-screen app).
-                JPEG or PNG works best.
-              </p>
-              <div className="row">
-                <input
-                  type="file"
-                  accept="image/*"
                   disabled={isBusy}
-                  onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
-              {previewUrl ? (
-                <img
-                  className="preview-img"
-                  src={previewUrl}
-                  alt="Receipt preview"
-                />
-              ) : null}
-              <div className="row">
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={parseImage}
-                  disabled={
-                    !file || isBusy || !signedIn || !auth?.googleLinked
-                  }>
-                  {loading === 'parse' ? <Spinner /> : null}
-                  {loading === 'parse' ? 'Parsing…' : 'Parse with AI'}
+                  onClick={() => {
+                    if (!isBusy) window.location.href = '/api/auth/link-google';
+                  }}
+                >
+                  Connect Google Drive &amp; Sheet{' '}
+                  <ArrowUpRight size={17} aria-hidden="true" />
                 </button>
-                {parseFailedShowUpload ? (
-                  <>
-                    <label
-                      className="row"
-                      style={{ gap: '0.35rem' }}>
-                      <input
-                        type="checkbox"
-                        checked={confirmDuplicate}
-                        disabled={isBusy}
-                        onChange={(e) => setConfirmDuplicate(e.target.checked)}
-                      />
-                      <span className="muted">
-                        Confirm duplicate image (required if this file was saved
-                        before)
-                      </span>
-                    </label>
-                    <input
-                      ref={uploadOnlyInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      disabled={isBusy}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0] ?? null;
-                        e.target.value = '';
-                        if (f) {
-                          onPickFile(f);
-                          void submitImageOnly(f);
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      disabled={isBusy || !signedIn || !auth?.googleLinked}
-                      onClick={() => void submitImageOnly()}>
-                      {loading === 'upload' ? <Spinner /> : null}
-                      {loading === 'upload'
-                        ? 'Saving…'
-                        : 'Save current image only'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      disabled={isBusy || !signedIn || !auth?.googleLinked}
-                      onClick={() => uploadOnlyInputRef.current?.click()}>
-                      Choose different image to upload
-                    </button>
-                  </>
-                ) : null}
-              </div>
-            </section>
-
-            {receipt ? (
-              <section className="card stack">
-                <strong>2. Review & edit</strong>
-                <div className="grid-2">
-                  <div className="field">
-                    <label htmlFor="vendor">Vendor</label>
-                    <input
-                      id="vendor"
-                      value={receipt.vendor ?? ''}
-                      disabled={isBusy}
-                      onChange={(e) =>
-                        setReceipt({ ...receipt, vendor: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="when">Receipt date/time (ISO)</label>
-                    <input
-                      id="when"
-                      value={receipt.receiptDatetime ?? ''}
-                      disabled={isBusy}
-                      onChange={(e) =>
-                        setReceipt({
-                          ...receipt,
-                          receiptDatetime: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="currency">Currency</label>
-                    <input
-                      id="currency"
-                      value={receipt.currency}
-                      disabled={isBusy}
-                      onChange={(e) =>
-                        setReceipt(
-                          sanitizeReceiptMoney({
-                            ...receipt,
-                            currency: e.target.value.toUpperCase(),
-                          }),
-                        )
-                      }
-                    />
-                  </div>
-                  <MoneyField
-                    id="total"
-                    label="Total"
-                    value={receipt.total}
-                    currency={receipt.currency}
-                    disabled={isBusy}
-                    onCommit={(n) =>
-                      setReceipt((r) => (r ? { ...r, total: n } : r))
-                    }
-                  />
-                  <div className="field">
-                    <label htmlFor="category">Category</label>
-                    <input
-                      id="category"
-                      value={receipt.category ?? ''}
-                      disabled={isBusy}
-                      onChange={(e) =>
-                        setReceipt({ ...receipt, category: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="desc">AI summary</label>
-                    <input
-                      id="desc"
-                      value={receipt.description ?? ''}
-                      disabled={isBusy}
-                      onChange={(e) =>
-                        setReceipt({ ...receipt, description: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="field">
-                  <label htmlFor="loc">Location label (optional)</label>
-                  <input
-                    id="loc"
-                    value={receipt.location?.label ?? ''}
-                    disabled={isBusy}
-                    onChange={(e) =>
-                      setReceipt({
-                        ...receipt,
-                        location: {
-                          ...receipt.location,
-                          label: e.target.value,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="row">
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    disabled={isBusy}
-                    onClick={attachLocation}>
-                    Use GPS coordinates
-                  </button>
-                  {receipt.location?.latitude != null ? (
-                    <span className="muted">
-                      {receipt.location.latitude.toFixed(5)},{' '}
-                      {receipt.location.longitude?.toFixed(5)}
-                    </span>
-                  ) : null}
-                </div>
-
-                <div
-                  className="row"
-                  style={{ justifyContent: 'space-between' }}>
-                  <strong>Line items</strong>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    disabled={isBusy}
-                    onClick={addItem}>
-                    Add row
-                  </button>
-                </div>
-                <div className="table-wrap overflow-x-auto rounded-lg border border-slate-500/20">
-                  <table className="min-w-full border-collapse text-left text-sm text-slate-200">
-                    <thead>
-                      <tr className="border-b border-slate-500/20 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        <th className="px-2 py-2">Name</th>
-                        <th className="w-20 px-2 py-2">Qty</th>
-                        <th className="min-w-[9rem] px-2 py-2">Unit</th>
-                        <th className="min-w-[9rem] px-2 py-2">Line</th>
-                        <th className="w-24 px-2 py-2" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {receipt.items.map((it, idx) => (
-                        <tr
-                          key={idx}
-                          className="border-b border-slate-500/10 align-top">
-                          <td className="px-2 py-2">
-                            <input
-                              className="w-full min-w-[8rem] rounded-lg border border-slate-500/40 bg-slate-950/60 px-2 py-1.5 text-sm outline-none ring-sky-400/30 focus:ring-2"
-                              value={it.name}
-                              disabled={isBusy}
-                              onChange={(e) =>
-                                updateItem(idx, { name: e.target.value })
-                              }
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <input
-                              type="number"
-                              min={1}
-                              step={1}
-                              className="w-full rounded-lg border border-slate-500/40 bg-slate-950/60 px-2 py-1.5 font-mono text-sm tabular-nums outline-none ring-sky-400/30 focus:ring-2"
-                              value={it.quantity}
-                              disabled={isBusy}
-                              onChange={(e) =>
-                                updateItem(idx, {
-                                  quantity: Number(e.target.value),
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <MoneyField
-                              value={it.unitPrice}
-                              currency={receipt.currency}
-                              compact
-                              disabled={isBusy}
-                              onCommit={(n) =>
-                                updateItem(idx, { unitPrice: n })
-                              }
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <MoneyField
-                              value={it.lineTotal}
-                              currency={receipt.currency}
-                              compact
-                              disabled={isBusy}
-                              onCommit={(n) =>
-                                updateItem(idx, { lineTotal: n })
-                              }
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              disabled={isBusy}
-                              onClick={() => removeItem(idx)}>
-                              Remove
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <label
-                  className="row"
-                  style={{ gap: '0.35rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={confirmDuplicate}
-                    disabled={isBusy}
-                    onChange={(e) => setConfirmDuplicate(e.target.checked)}
-                  />
-                  <span className="muted">
-                    Confirm duplicate image (allow saving again)
-                  </span>
-                </label>
-
-                <div className="row">
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={submit}
-                    disabled={isBusy || !signedIn || !auth?.googleLinked}>
-                    {loading === 'submit' ? <Spinner /> : null}
-                    {loading === 'submit' ? 'Saving…' : 'Approve & save'}
-                  </button>
-                </div>
               </section>
             ) : null}
-          </>
-        ) : (
-          <section className="card stack">
-            <strong>My receipts</strong>
-            <p
-              className="muted"
-              style={{ margin: 0 }}>
-              Saved receipts for your account (newest first). Date uses receipt
-              date when set, otherwise saved time.
-            </p>
-            <ReceiptsList
-              signedIn={signedIn}
-              googleLinked={Boolean(auth?.googleLinked)}
-              refreshKey={receiptsListNonce}
-              parentBusy={isBusy}
-              onAfterMutation={bumpReceiptsUi}
-            />
-          </section>
-        )}
-
-        {error ? (
-          <div
-            className="badge warn"
-            role="alert"
-            aria-live="polite">
-            {error}
-          </div>
-        ) : null}
-
-        {lastSubmit?.ok ? (
-          <div
-            className="badge"
-            role="status">
-            Saved. Image:{' '}
-            <a
-              href={lastSubmit.imageUrl}
-              target="_blank"
-              rel="noreferrer">
-              open
-            </a>
-            {lastSubmit.sheetsAppended === false ? (
-              <span className="muted">
-                {' '}
-                · Sheet sync skipped or failed (see server logs)
-              </span>
+            {lastSubmit?.ok ? (
+              <div
+                className={`notice ${sheetSyncFailed ? 'notice-warning' : 'notice-success'} save-notice`}
+                role="status"
+              >
+                <CheckCircle size={22} aria-hidden="true" />
+                <div>
+                  <strong>Receipt saved.</strong>
+                  <p>
+                    {sheetSyncFailed
+                      ? 'Your record is safe in My receipts, but it was not added to your Google Sheet. You can recreate the sheet from your saved receipts.'
+                      : 'Your photo and approved details are ready in My receipts.'}
+                  </p>
+                  <div className="notice-links">
+                    <button
+                      type="button"
+                      className="text-button"
+                      disabled={isBusy}
+                      onClick={showReceipts}
+                    >
+                      View my receipts
+                    </button>
+                    <a
+                      href={lastSubmit.imageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open image <ArrowUpRight size={14} aria-hidden="true" />
+                    </a>
+                  </div>
+                </div>
+              </div>
             ) : null}
-          </div>
-        ) : null}
-      </div>
+            {error ? (
+              <div className="notice notice-warning" role="alert">
+                <WarningCircle size={21} aria-hidden="true" />
+                <div>
+                  <strong>
+                    {parseFailedShowUpload
+                      ? 'We could not read this receipt.'
+                      : 'Something needs your attention.'}
+                  </strong>
+                  <p>{error}</p>
+                </div>
+              </div>
+            ) : null}
+            {mainTab === 'scan' ? (
+              <>
+                <div className="workspace-grid">
+                  <div className="capture-column">
+                    <ReceiptCapture
+                      file={file}
+                      previewUrl={previewUrl}
+                      busy={isBusy}
+                      parsing={loading === 'parse'}
+                      enabled={canScan}
+                      reviewed={Boolean(receipt)}
+                      onPickFile={onPickFile}
+                      onParse={() => void parseImage()}
+                      onReset={resetFlow}
+                    />
+                    {parseFailedShowUpload ? (
+                      <section
+                        className="upload-recovery"
+                        aria-labelledby="upload-recovery-heading"
+                      >
+                        <h3 id="upload-recovery-heading">
+                          Keep the photo, even without the details
+                        </h3>
+                        <p>
+                          You can retry parsing, or save just the image.
+                          Extracted fields will not be included.
+                        </p>
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={confirmDuplicate}
+                            disabled={isBusy}
+                            onChange={(e) =>
+                              setConfirmDuplicate(e.target.checked)
+                            }
+                          />
+                          <span>
+                            Confirm duplicate image{' '}
+                            <span className="muted">
+                              (required if already saved)
+                            </span>
+                          </span>
+                        </label>
+                        <input
+                          ref={uploadOnlyInputRef}
+                        tabIndex={-1}
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          aria-label="Choose different image to upload"
+                          disabled={isBusy}
+                          onChange={(e) => {
+                            const next = e.target.files?.[0];
+                            e.target.value = '';
+                            if (next && onPickFile(next)) {
+                              void submitImageOnly(next);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-block"
+                          disabled={isBusy || !canScan}
+                          onClick={() => void submitImageOnly()}
+                        >
+                          {loading === 'upload' ? <Spinner /> : null}
+                          {loading === 'upload'
+                            ? 'Saving image...'
+                            : 'Save current image only'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-quiet btn-block"
+                          disabled={isBusy || !canScan}
+                          onClick={() => uploadOnlyInputRef.current?.click()}
+                        >
+                          Choose different image to upload
+                        </button>
+                      </section>
+                    ) : null}
+                  </div>
+                  <ReceiptReview
+                    receipt={receipt}
+                    busy={isBusy}
+                    parsing={loading === 'parse'}
+                    saving={loading === 'submit'}
+                    enabled={canScan}
+                    duplicateHint={duplicateHint}
+                    confirmDuplicate={confirmDuplicate}
+                    onDuplicateChange={setConfirmDuplicate}
+                    onChange={setReceipt}
+                    onTotalChange={(total) =>
+                      setReceipt((current) =>
+                        current ? { ...current, total } : current,
+                      )
+                    }
+                    onCurrencyChange={(currency) =>
+                      setReceipt((current) =>
+                        current
+                          ? sanitizeReceiptMoney({ ...current, currency })
+                          : current,
+                      )
+                    }
+                    onUpdateItem={updateItem}
+                    onAddItem={addItem}
+                    onRemoveItem={removeItem}
+                    onLocation={attachLocation}
+                    onSubmit={() => void submit()}
+                  />
+                </div>
+              </>
+            ) : (
+              <ReceiptsList
+                signedIn={signedIn}
+                googleLinked={Boolean(auth.googleLinked)}
+                refreshKey={receiptsListNonce}
+                parentBusy={isBusy}
+                onAfterMutation={bumpReceiptsUi}
+                onCaptureNew={() => setMainTab('scan')}
+              />
+            )}
+          </>
+        )}
+      </main>
     </div>
   );
 }

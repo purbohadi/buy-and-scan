@@ -35,8 +35,8 @@ export default defineConfig(({ mode }) => {
           name: "Scan & Parse",
           short_name: "ScanParse",
           description: "Capture receipts, parse with AI, review, and sync to your sheet.",
-          theme_color: "#0f172a",
-          background_color: "#0f172a",
+          theme_color: "#225b43",
+          background_color: "#f5f6f2",
           display: "standalone",
           start_url: "/",
           icons: [
@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
           ]
         },
         workbox: {
-          globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
+          globPatterns: ["**/*.{js,css,html,ico,png,svg,webp,woff2}"],
           navigateFallbackDenylist: [/^\/api\//]
         }
       })
