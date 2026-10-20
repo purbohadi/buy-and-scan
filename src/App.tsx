@@ -497,7 +497,7 @@ export default function App() {
                   <p>
                     Sign-in is temporarily unavailable. Please try again later
                     or{' '}
-                    <a href="mailto:purbo@talktomydocument.com">contact us</a>.
+                    <a href="mailto:purbohadi@talktomydocument.com">contact us</a>.
                   </p>
                 </div>
               )}
